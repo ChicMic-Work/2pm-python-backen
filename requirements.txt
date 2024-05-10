@@ -1,0 +1,16 @@
+fastapi
+pydantic
+sqlalchemy
+alembic
+pytz
+uvicorn
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+requests
+python-dotenv
+psycopg2
+asyncpg
+pydantic[email]
+jinja2
+fastapi-mail
