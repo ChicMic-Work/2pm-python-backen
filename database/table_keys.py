@@ -19,16 +19,21 @@ class MemberProfileKeys(BaseKey):
     gender      = "Gender"
     created_at  = "Joined_At"
     updated_at  = "Updated_At"
-    mem_id_FK   = table_name + "." + id 
+    mem_id_FK   = table_name + "." + id
 
     gender_validation = ["Male", "Female", "Other"]
 
     py_table_name = "MemberProfile"
+    _member_posts = "member_posts"
+    _mem_sub    = "member_sub"
     _lang       = "members"
     _int_area   = "members"
     _mem_status = "status"
     _signin     = "session"
-    _promo      = 'promo_offers'
+    _promo      = "promo_offers"
+    _fav_received       = "favorite_like_received"
+    _post_invites       = "post_invites"
+    _total_post_count   = "total_post_count"
     
 
 class MmbLangKeys(BaseKey):
@@ -108,7 +113,7 @@ class SignInKeys(BaseKey):
     
 class PromoOfferKeys(BaseKey):
     
-    table_name  = "T_Signin_Session_Hist"
+    table_name  = "T_Promo_Offer"
     id          = "Promo_Offer_ID"
     member_id   = "Member_ID"
     type        = "Type"
@@ -120,8 +125,131 @@ class PromoOfferKeys(BaseKey):
     redeemed_at = "Redeemed_At"
     created_by  = "Created_By"
     
+    promo_id_FK = f"{table_name}.{id}"
+
     py_table_name = "PromoOffer"
-    _memb       = "member_profile"
+    _memb         = "member_profile"
+    _mem_sub      = "member_sub"
     
     created_by_default = "system"
     
+
+class MemSubKeys(BaseKey):
+    
+    table_name  = "T_Member_Subscription"
+    id          = "Member_Subscription_ID"
+    member_id   = "Member_ID"
+    promo_id    = "Promo_ID"
+
+    memb_sub_level  = "Mbrshp_Lvl"
+    memb_sub_status= "Mbrshp_Status"
+    memb_sub_fee= "Mbrshp_Fee_Amt"
+    
+    started_at  = "Started_At"
+    cancelled_at= "Cancelled_At"
+    expired_at  = "Expired_At"
+
+    memsub_id_FK= table_name +"." + id
+
+    py_table_name = "MemSub"
+    _memb         = "member_profile"
+    _member_posts = "member_posts"
+    _promo        = "promo_offer"
+
+
+class PostKeys(BaseKey):
+
+    table_name  = "T_Post"
+    id          = "Promo_Offer_ID"
+    member_id   = "Author_ID"
+    mem_sub_id  = "Membership_Subscription_ID"
+    intrst_id   = "Interest_Area_ID"
+    lang_id     = "Language_ID"
+
+    is_anonymous= "Is_Anonymous"
+    is_drafted  = "Is_Drafted"
+
+    type        = "Type"
+    # "Tag1"
+    # "Tag2"
+    # "Tag3"
+    title       = "Title"
+    body        = "Body"
+    ass_post_id = "Assoc_Qstn_Post_ID"
+    is_blocked  = "Is_Blocked"
+
+    post_id_FK   = table_name + "." + id
+    key_default = 0
+
+    py_table_name = "Post"
+
+    _memb               = "member_profile"
+    _mem_sub            = "member_sub"
+    _total_post_count   = "total_post_count"
+    _parent_post        = "parent_post"
+    _associated_post     = "associated_post"
+
+
+class MemFavRecKeys(BaseKey):
+
+    table_name  = "T_Member_Favorite_Like_Received_Cnt"
+    id          = "ID"
+    member_id   = "Member_ID"
+    fav_received = "Favorite_Received_Cnt"
+    like_received= "Like_Received_Cnt"
+
+    py_table_name = "MemFavReceived"
+    _memb       = "member_profile"
+
+    key_default = 0
+
+
+class MemTotalPostKeys(BaseKey):
+
+    table_name  = "T_Member_Post_Cnt"
+    id          = "ID"
+    member_id   = "Member_ID"
+
+    post_count  = "Post_Cnt"
+    blog_count  = "Blog_Cnt"
+    question_count  = "Question_Cnt"
+    answer_count    = "Answer_Cnt"
+    poll_count      = "Poll_Cnt"
+
+    taken_poll_count= "Taken_Poll_Cnt"
+    
+    draft_post_count= "Draft_Post_Cnt"
+    draft_blog_count= "Draft_Blog_Cnt"
+    draft_ques_count= "Draft_Question_Cnt"
+    draft_ans_count = "Draft_Answer_Cnt"
+    draft_poll_count= "Draft_Poll_Cnt"
+
+    last_post_id    = "Last_Post_ID"
+    last_post_lang  = "Last_Post_Written_Language_ID" #text
+    last_post_interest = "Last_Post_Interest_Area_ID" #text
+
+    py_table_name = "MemTotalPostCount"
+    _memb       = "member_profile"
+
+    key_default = 0
+    _post       = "member_post"
+
+
+class MemInvitesKeys(BaseKey):
+
+    table_name  = "T_Member_Invite_Cnt"
+    id          = "ID"
+    member_id   = "Member_ID"
+    ques_invites = "Invite_Question_Received_Cnt"
+    poll_invites = "Invite_Poll_Received_Cnt"
+    ques_invited = "Invite_Question_Sent_Cnt"
+    poll_invited = "Invite_Poll_Sent_Cnt"
+
+    py_table_name = "MemInvites"
+    _memb       = "member_profile"
+
+    key_default = 0
+
+
+
+"T_Followers"
