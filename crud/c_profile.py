@@ -8,7 +8,9 @@ from database.models import (
     Languages,
     InterestAreas,
     MemberProfile,
-    MemberStatus
+    MemberStatus,
+    AliasHist,
+    MemAliasHist
 )
 from schemas import s_auth, s_choices
 
@@ -46,9 +48,38 @@ async def create_user_interest_choices(
             
     return interests
 
-async def initial_member_status(
+
+async def create_initial_member_status(
     db: AsyncSession, 
     user_id: UUID
 ) -> MemberStatus:
     status = MemberStatus(member_id = user_id)
     return status
+
+
+async def get_used_alias(
+    db: AsyncSession, 
+    name: str
+) -> AliasHist | None:  
+    query = select(AliasHist).filter(
+            (AliasHist.alias == name)
+        )
+
+    return (await db.execute(query)).scalar()
+
+
+async def create_user_alias(
+    name: str,
+    user_id: UUID
+) -> AliasHist | None:  
+    
+    mem_alias = MemAliasHist(
+        member_id = user_id,
+        alias = name
+    )
+    
+    all_alias = AliasHist(
+        alias = name
+    )
+
+    return mem_alias, all_alias

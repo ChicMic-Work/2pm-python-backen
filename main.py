@@ -67,19 +67,8 @@ def default(
 ):
     return 'Yo'
 
-@app.get("/tr")
-def token_required(
-    request: Request,
-    Auth_token = Header(title=AuthTokenHeaderKey),
-    db: AsyncSession = Depends(get_db)
-):
-    # user = get_current_user(Authorization)
-    abc = "jksbb"
-
-    return {"verified" : True}
-
 @app.get("/template_check", response_class=HTMLResponse)
-async def read_item(
+async def send_email_check(
     request: Request, 
     name: str, 
     username: str,

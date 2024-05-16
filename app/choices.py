@@ -14,7 +14,7 @@ from database.models import (
 )
 
 from utilities.constants import (
-    current_time
+    current_time, ChoicesType
 )
 
 from typing import (
@@ -35,8 +35,9 @@ router = APIRouter(
 
 
 @router.post(
-    "/create",
-    response_model = List[LangIAResponse]
+    "/create/",
+    response_model = List[LangIAResponse],
+    status_code = status.HTTP_201_CREATED
     )
 async def create_choices(
     request: Request,
@@ -44,7 +45,7 @@ async def create_choices(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        if choices.type == 1:
+        if choices.type == ChoicesType.Language:
             created_choices = await create_language_choices(db, choices.lang_ia)
         else:
             created_choices = await create_interest_choices(db, choices.lang_ia)
@@ -62,7 +63,7 @@ async def create_choices(
 
     except Exception as e:
         await db.rollback()
-        if hasattr(e, "detail"):
+        if hasattr(e, "detail") and hasattr(e, "status_code"):
             msg = e.detail
             status_code = e.status_code
         else:
@@ -74,7 +75,7 @@ async def create_choices(
 @router.get(
     "/all", 
     response_model = List[LangIAResponse],
-    status_code = status.HTTP_201_CREATED
+    status_code = status.HTTP_200_OK
     )
 async def get_all_choices(
     request: Request,

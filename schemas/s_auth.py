@@ -4,8 +4,9 @@ from pydantic import (
 )
 from typing import List, Optional
 from schemas.s_choices import (
-    LangIAResponse
+    LangIAResponse, 
 )
+
 from utilities.constants import SocialType
 
 from uuid import UUID
@@ -24,7 +25,17 @@ class MemberSignup(BaseModel):
     device_type: str
     device_model: str
 
+class MemberProfileAuthResponse(BaseModel):
+    alias: str = None
+    bio: str = None
+    is_dating: bool = True
+    gender: str = None
+    image: str = None
+    language_choices: List[LangIAResponse] = []
+    interest_area_choices: List[LangIAResponse] = []
+
 class MemberSignupResponse(BaseModel):
-    id: UUID
     token: str
+    new_user: bool
+    profile: MemberProfileAuthResponse | None
 

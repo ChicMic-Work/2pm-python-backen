@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from schemas.s_auth import (
     Token, RefreshToken,
-    MemberSignup, MemberSignupResponse
+    MemberSignup, MemberSignupResponse,
+    MemberProfileAuthResponse
 )
 
 from dependencies import (
@@ -23,15 +24,19 @@ from dependencies import (
 from crud.c_auth import (
     get_user_by_social_id, 
     create_user,
-    create_signin_session
+    create_signin_session,
+    verify_apple_token,
+    verify_google_token,
+    get_user_by_id
     )
 
 from crud.c_profile import (
-    initial_member_status
+    create_initial_member_status
 )
 
 from utilities.constants import (
-    access_token_expire
+    access_token_expire,
+    SocialType
 )
 
 """
@@ -107,7 +112,7 @@ async def refresh_access_token(
 @router.post(
     "/login/", 
     response_model = MemberSignupResponse,
-    status_code = status.HTTP_201_CREATED
+    status_code = status.HTTP_200_OK
     )
 async def login_user(
     request: Request,
@@ -122,40 +127,61 @@ async def login_user(
         )
         
         ip = None
+        new_user = False
         if request.client.host:
             ip = request.client.host
-        
-        # TODO: Token Authentication
+            
+        # if create_user_request.social_type == SocialType.Apple:
+        #     await verify_apple_token(create_user_request.token, create_user_request.social_id)
+        # else:
+        #     await verify_google_token(create_user_request.token)
         
         if db_user:
-            session = await create_signin_session(db_user.id, ip,create_user_request)
+            session = await create_signin_session(db_user.id, ip, create_user_request)
+            if not db_user.alias:
+                new_user = True
             db.add(session)
         else:
             db_user = await create_user(db, create_user_request)
-            mem_status = await initial_member_status(db, db_user.id)
+            # mem_status = await create_initial_member_status(db, db_user.id)
             session = await create_signin_session(db_user.id, ip, create_user_request)
+            new_user = True
             db.add(db_user)
-            db.add(mem_status)
+            # db.add(mem_status)
             db.add(session)
             
         await db.commit()
         await db.refresh(db_user)
             
-        access_token, refresh_token = await create_access_token(db_user.id, access_token_expire)
+        access_token = await create_access_token(db_user.id, access_token_expire)
         
+        memb_resp = None
+        if not new_user:
+            db_user = await get_user_by_id(db, db_user.id)
+            memb_resp = MemberProfileAuthResponse(
+                alias = db_user.alias,
+                bio= db_user.bio,
+                gender= db_user.gender,
+                is_dating= db_user.is_dating,
+                image= db_user.image,
+                language_choices= db_user.language_choices,
+                interest_area_choices= db_user.interest_area_choices
+            )
+
         return MemberSignupResponse(
-            id= db_user.id,
-            token= access_token
+            token= access_token,
+            new_user= new_user,
+            profile= memb_resp
         )
 
-    except Exception as e:
-        if hasattr(e, "detail"):
-            msg = e.detail
-            status_code = e.status_code
+    except Exception as exc:
+        if hasattr(exc, "detail") and hasattr(exc, "status_code"):
+            msg = exc.detail
+            status_code = exc.status_code
         else:
             status_code = 500
-            msg = 'Internal Server Error'
+            msg = str(exc)
 
         await db.rollback()
-        raise HTTPException(status_code=status_code, detail=msg) from e
+        raise HTTPException(status_code=status_code, detail=msg) from exc
     

@@ -11,11 +11,21 @@ from schemas.s_auth import (
     MemberSignup
 )
 
+import requests
+
 from uuid import UUID
-from utilities.constants import current_time, SocialType
+from utilities.constants import (
+    current_time, SocialType,
+    APPLE_TOKEN_ISS, APPLE_TOKEN_AUD,
+    APPLE_AUTH_KEY_URL,GOOGLE_AUTH_KEY_URL,
+    GOOGLE_TOKEN_AUD
+)
 
 from uuid_extensions import uuid7
 
+import jwt
+
+from fastapi import HTTPException, status
 
 async def create_user(
     db: AsyncSession, 
@@ -73,7 +83,7 @@ async def create_signin_session(
     user_id: UUID,
     ip: str,
     create_user_request: MemberSignup
-):
+) -> SignInSession:
     session = SignInSession(
         member_id = user_id,
         signin_id = create_user_request.social_id,
@@ -84,3 +94,60 @@ async def create_signin_session(
     )
     
     return session
+
+
+async def verify_apple_token(
+    token: str,
+    social_id: str
+):
+    try:
+        header = jwt.get_unverified_header(token)
+
+        response = requests.get(APPLE_AUTH_KEY_URL)
+        response.raise_for_status()
+        response_json = response.json()["keys"]
+        
+        keys = [key['kid'] for key in response_json]
+        
+        if header["kid"] not in keys:
+            raise
+        
+        payload = jwt.decode(
+                token,
+                "",
+                verify=False,
+                options={"verify_signature": False},
+                algorithms=[header['alg']],
+            )
+        
+        if payload["iss"] != APPLE_TOKEN_ISS:
+            raise
+        
+        if payload["aud"] != APPLE_TOKEN_AUD:
+            raise
+        
+        if payload["sub"] != social_id:
+            raise
+            
+    except:
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Invalid Social Token")
+        
+        
+async def verify_google_token(
+    token: str,
+):
+    try:
+        
+        params = {
+            "id_token":token
+        }
+
+        response = requests.get(GOOGLE_AUTH_KEY_URL, params)
+        response.raise_for_status()
+        response_json = response.json()
+        
+        if response_json["aud"] != GOOGLE_TOKEN_AUD:
+            raise
+            
+    except:
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Invalid Social Token")

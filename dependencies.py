@@ -15,7 +15,7 @@ from database.models import SessionLocal
 
 # jwt
 from passlib.context import CryptContext
-from jose import jwt, JWTError
+from jose import jwt, JWTError, ExpiredSignatureError
 from uuid import UUID
 
 bcrypt_context = CryptContext(schemes=['bcrypt'])
@@ -40,11 +40,16 @@ async def create_access_token(
     access_payload = {'id': str(user_id), 'exp': expires_access} #'sub': email, 
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
     
-    expires_refresh = expires_access + timedelta(days=30)
-    refresh_payload = {'id': str(user_id), 'exp': expires_refresh}
-    refresh_token = jwt.encode(refresh_payload, SECRET_KEY, algorithm=ALGORITHM)
+    # expires_refresh = expires_access + timedelta(days=30)
+    # refresh_payload = {'id': str(user_id), 'exp': expires_refresh}
+    # refresh_token = jwt.encode(refresh_payload, SECRET_KEY, algorithm=ALGORITHM)
+    print(f"""
+          {access_token}
+        
+    """)
+    #   {refresh_token}
     
-    return access_token, refresh_token
+    return access_token #, refresh_token
 
 
 def get_current_user(token: str, middleware = False):
@@ -59,6 +64,8 @@ def get_current_user(token: str, middleware = False):
                 detail='Could not validate user'
             )
         return {'id': user_id}
+    except ExpiredSignatureError:
+        raise AuthenticationError('Token Expired')
     except JWTError:
         if middleware:
             raise AuthenticationError('Could not validate user')

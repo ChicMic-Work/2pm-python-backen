@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, asc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,7 @@ from schemas import s_auth, s_choices
 from typing import List
 
 from utilities.constants import (
-    current_time
+    current_time, ChoicesType
 )
 
 from fastapi import HTTPException
@@ -72,10 +72,10 @@ async def get_all_created_choices(
     list_choices = []
     if type not in (0,1):
         raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail= f"type :{type}, is not valid")
-    if type == 1:
-        query = select(models.Languages)
-    elif type == 0:
-        query = select(models.InterestAreas)
+    if type == ChoicesType.Language:
+        query = select(models.Languages).order_by(asc(models.LanguageKeys.created_at))
+    elif type == ChoicesType.Interest_Area:
+        query = select(models.InterestAreas).order_by(asc(models.InterestAreaKeys.created_at))
         
     result = await db.execute(query)
     return result.scalars().all()
