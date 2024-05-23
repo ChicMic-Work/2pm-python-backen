@@ -6,7 +6,7 @@ from crud.c_auth import get_user_by_id
 from dependencies import get_db
 from database.models import SessionLocal
 
-from utilities.constants import AuthTokenHeaderKey, protected_endpoints
+from utilities.constants import AuthTokenHeaderKey, protected_endpoints, REDIS_DB
 
 """
 # Middleware function to check JWT token for selected endpoints
@@ -47,6 +47,8 @@ from starlette.authentication import (
 
 from starlette.middleware.authentication import AuthenticationMiddleware
 
+from redis.asyncio import Redis
+
 class RequestUser(BaseUser):
     def __init__(self, user) -> None:
         self.user = user
@@ -75,17 +77,26 @@ class BearerTokenAuthBackend(AuthenticationBackend):
 
         if request.url.path in protected_endpoints:
             
+            
             if AuthTokenHeaderKey not in request.headers:
                raise AuthenticationError('Provide authorization credentials')
 
             auth_token = request.headers[AuthTokenHeaderKey]
             token = auth_token #.split(' ')[1]
+            
+            red = await Redis(db = REDIS_DB)
+            revoked_tokens = await red.get('revoked_tokens')
+            if revoked_tokens:
+                revoked_tokens = revoked_tokens.decode('utf-8')
+                if auth_token in revoked_tokens:
+                    raise AuthenticationError('Unauthorized Access')
+            await red.close()
 
             user_cred = get_current_user(token, True)
             
             async with SessionLocal() as db:
                 user = await get_user_by_id(db, user_cred["id"])
-                
+    
             if not user:
                 raise AuthenticationError('Unauthorized Access')
 

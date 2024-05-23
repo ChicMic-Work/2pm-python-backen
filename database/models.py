@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, backref
 
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -19,6 +19,7 @@ from sqlalchemy import (
     DateTime, UUID, text, LargeBinary,
     ForeignKey, Table,
     CheckConstraint, Index,
+    DDL, event, Date
     )
 
 from database.table_keys import (
@@ -28,12 +29,14 @@ from database.table_keys import (
     SignInKeys, PromoOfferKeys,
     MemFavRecKeys, MemTotalPostKeys,
     MemInvitesKeys, PostKeys,
-    MemSubKeys
+    MemSubKeys, MemAliasHistKeys,
+    AliasHistKeys, 
+    
 )
 
 from sqlalchemy.orm import validates, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_test"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1"
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
 SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
@@ -45,15 +48,19 @@ default_uuid7 = text("uuid_generate_v7()")
 member_language_association = Table(
     MmbLangKeys.table_name,
     Base.metadata,
-    Column(MmbLangKeys.id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK)),
-    Column(MmbLangKeys.language_id, UUID(as_uuid=True), ForeignKey(LanguageKeys.lang_id_FK)),
+    Column(MmbLangKeys.id, Integer, primary_key= True),
+    Column(MmbLangKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK)),
+    Column(MmbLangKeys.language_id, SmallInteger, ForeignKey(LanguageKeys.lang_id_FK)),
+    Column(MmbLangKeys.add_at, Date, default= current_time.date())
 )
 
 member_interest_area_association = Table(
     MmbIntAreaKeys.table_name,
     Base.metadata,
-    Column(MmbIntAreaKeys.id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK)),
-    Column(MmbIntAreaKeys.int_area_id, UUID(as_uuid=True), ForeignKey(InterestAreaKeys.int_id_FK)),
+    Column(MmbIntAreaKeys.id, Integer, primary_key= True),
+    Column(MmbIntAreaKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK)),
+    Column(MmbIntAreaKeys.int_area_id, SmallInteger, ForeignKey(InterestAreaKeys.int_id_FK)),
+    Column(MmbIntAreaKeys.add_at, Date, default= current_time.date())
 )
 
 class MemberProfile(Base):
@@ -61,13 +68,16 @@ class MemberProfile(Base):
     id              = Column(MemberProfileKeys.id , UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     apple_id        = Column(MemberProfileKeys.apple_id, String, unique=True, index=True)
     google_id       = Column(MemberProfileKeys.google_id, String, unique=True, index=True)
+    join_at         = Column(MemberProfileKeys.join_at, DateTime, default= current_time, nullable= False)
+    
     alias           = Column(MemberProfileKeys.alias, String, unique=True, index=True)
     bio             = Column(MemberProfileKeys.bio, String)
     image           = Column(MemberProfileKeys.image, String)
     gender          = Column(MemberProfileKeys.gender, String)
-
-    created_at      = Column(MemberProfileKeys.created_at, DateTime, default = current_time  ,nullable= False)
-    updated_at      = Column(MemberProfileKeys.updated_at, DateTime, default = current_time  ,nullable= False)
+    is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default)
+    
+    add_at          = Column(MemberProfileKeys.add_at, Date, nullable= True)
+    is_current      = Column(MemberProfileKeys.is_current, Boolean, nullable= False, default= 1)
     
     member_posts            = relationship(PostKeys.py_table_name, back_populates=PostKeys._memb)
     member_sub              = relationship(MemSubKeys.py_table_name, back_populates=MemSubKeys._memb)
@@ -78,19 +88,40 @@ class MemberProfile(Base):
     status                  = relationship(MemberStatusKeys.py_table_name, uselist=False, back_populates=MemberStatusKeys._memb)
     session                 = relationship(SignInKeys.py_table_name, back_populates=SignInKeys._memb)
     
-    promo_offers            = relationship(PromoOfferKeys.py_table_name, back_populates=PromoOfferKeys._memb)
     favorite_like_received  = relationship(MemFavRecKeys.py_table_name, uselist=False, back_populates=MemFavRecKeys._memb)
     post_invites            = relationship(MemInvitesKeys.py_table_name, uselist=False, back_populates=MemInvitesKeys._memb)
     total_post_count        = relationship(MemTotalPostKeys.py_table_name, uselist=False, back_populates=MemTotalPostKeys._memb)
     
-    @validates("gender")
-    def validate_gender(self, key, value):
-        assert value in MemberProfileKeys.gender_validation, f"Invalid gender: {value}"
-        return value
+    member_alias_hist       = relationship(MemAliasHistKeys.py_table_name, back_populates=MemAliasHistKeys._memb)
+    
+    # @validates("gender")
+    # def validate_gender(self, key, value):
+    #     assert value in MemberProfileKeys.gender_validation, f"Invalid gender: {value}"
+    #     return value
     
 Index('ix_apple_id_unique', MemberProfile.apple_id, unique=True, postgresql_where=MemberProfile.apple_id.isnot(None))
 Index('ix_alias_unique', MemberProfile.alias, unique=True, postgresql_where=MemberProfile.alias.isnot(None))
 Index('ix_google_id_unique', MemberProfile.google_id, unique=True, postgresql_where=MemberProfile.google_id.isnot(None))
+
+partition_by_is_current = DDL(f"""
+    ALTER TABLE {MemberProfileKeys.table_name}
+    PARTITION BY LIST ({MemberProfileKeys.is_current})
+""")
+
+create_partition_is_current_true = DDL(f"""
+    CREATE TABLE {MemberProfileKeys._table_name_curr} PARTITION OF {MemberProfileKeys.table_name}
+    FOR VALUES IN (true)
+""")
+
+create_partition_is_current_false = DDL(f"""
+    CREATE TABLE {MemberProfileKeys._table_name_prev} PARTITION OF {MemberProfileKeys.table_name}
+    FOR VALUES IN (false)
+""")
+
+# event.listen(MemberProfile, 'after_create', partition_by_is_current)
+# event.listen(MemberProfile, 'after_create', create_partition_is_current_true)
+# event.listen(MemberProfile, 'after_create', create_partition_is_current_false)
+
 """ 
     __table_args__ = (
         CheckConstraint(
@@ -113,30 +144,27 @@ class MemSub(Base):
 
     id            = Column(MemSubKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     member_id     = Column(MemSubKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK), nullable= False)
-    promo_id      = Column(MemSubKeys.promo_id, UUID(as_uuid=True), ForeignKey(PromoOfferKeys.promo_id_FK), nullable= True)
     
     memb_sub_level  = Column(MemSubKeys.memb_sub_level, SmallInteger, nullable= False)
     memb_sub_status = Column(MemSubKeys.memb_sub_status, SmallInteger, nullable= False)
-    memb_sub_fee    = Column(MemSubKeys.memb_sub_fee, SmallInteger, nullable= False)
+    # memb_sub_fee    = Column(MemSubKeys.memb_sub_fee, SmallInteger, nullable= False)
 
-    started_at      = Column(MemSubKeys.started_at, DateTime, nullable= False)
+    # started_at      = Column(MemSubKeys.started_at, DateTime, nullable= False)
     cancelled_at    = Column(MemSubKeys.cancelled_at, DateTime, nullable= True)
-    expired_at      = Column(MemSubKeys.expired_at, DateTime, nullable= True)
+    # expired_at      = Column(MemSubKeys.expired_at, DateTime, nullable= True)
 
     created_at      = Column(MemSubKeys.created_at, DateTime, default= current_time, nullable= False)
     updated_at      = Column(MemSubKeys.updated_at, DateTime, default= current_time, nullable= False)
 
     member_profile          = relationship(MemberProfileKeys.py_table_name, back_populates=MemberProfileKeys._mem_sub)
-    member_posts            = relationship(PostKeys.py_table_name, back_populates=PostKeys._mem_sub)
-    promo_offer             = relationship(PromoOfferKeys.py_table_name, back_populates=PromoOfferKeys._mem_sub)
 
 
 class Languages(Base):
     __tablename__ = LanguageKeys.table_name
 
-    id             = Column(LanguageKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    id             = Column(LanguageKeys.id, SmallInteger,nullable=False, primary_key= True)
     name           = Column(LanguageKeys.name, String, nullable=False, unique=True)
-    created_at     = Column(MemberProfileKeys.created_at, DateTime, default = current_time  ,nullable= False)
+    create_date    = Column(LanguageKeys.create_data, Date, default = current_time.date()  ,nullable= False)
 
     members        = relationship(MemberProfileKeys.py_table_name, secondary = member_language_association, back_populates=LanguageKeys._memb)
     
@@ -144,9 +172,9 @@ class Languages(Base):
 class InterestAreas(Base):
     __tablename__ = InterestAreaKeys.table_name
 
-    id            = Column(InterestAreaKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    id            = Column(InterestAreaKeys.id, SmallInteger,nullable=False, primary_key= True)
     name          = Column(InterestAreaKeys.name, String, nullable=False, unique=True)
-    created_at    = Column(InterestAreaKeys.created_at, DateTime, default = current_time  ,nullable= False)
+    create_date    = Column(InterestAreaKeys.create_data, Date, default = current_time.date()  ,nullable= False)
 
     members       = relationship(MemberProfileKeys.py_table_name, secondary = member_interest_area_association, back_populates=InterestAreaKeys._memb)
     
@@ -193,51 +221,52 @@ class SignInSession(Base):
     member_profile = relationship(MemberProfileKeys.py_table_name, back_populates=MemberProfileKeys._signin)
 
 
-class PromoOffer(Base):
-    __tablename__ = PromoOfferKeys.table_name
+# class PromoOffer(Base):
+#     __tablename__ = PromoOfferKeys.table_name
     
-    id            = Column(PromoOfferKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
-    member_id     = Column(PromoOfferKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK), nullable= True)
-    type          = Column(PromoOfferKeys.type, String, nullable = False)
-    amount        = Column(PromoOfferKeys.amount, SmallInteger, nullable = False)
-    code          = Column(PromoOfferKeys.code, String, nullable = False, unique= True)
-    created_by    = Column(PromoOfferKeys.created_by, String, nullable= False, default= PromoOfferKeys.created_by_default)
-    effective_at  = Column(PromoOfferKeys.effective_at, DateTime, nullable= False)
-    redeemed_at   = Column(PromoOfferKeys.redeemed_at, DateTime, nullable= True)
+#     id            = Column(PromoOfferKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+#     member_id     = Column(PromoOfferKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK), nullable= True)
+#     type          = Column(PromoOfferKeys.type, String, nullable = False)
+#     amount        = Column(PromoOfferKeys.amount, SmallInteger, nullable = False)
+#     code          = Column(PromoOfferKeys.code, String, nullable = False, unique= True)
+#     created_by    = Column(PromoOfferKeys.created_by, String, nullable= False, default= PromoOfferKeys.created_by_default)
+#     effective_at  = Column(PromoOfferKeys.effective_at, DateTime, nullable= False)
+#     redeemed_at   = Column(PromoOfferKeys.redeemed_at, DateTime, nullable= True)
 
-    created_at    = Column(PromoOfferKeys.created_at, DateTime, default= current_time, nullable= False)
-    updated_at    = Column(PromoOfferKeys.updated_at, DateTime, default= current_time, nullable= False)
+#     created_at    = Column(PromoOfferKeys.created_at, DateTime, default= current_time, nullable= False)
+#     updated_at    = Column(PromoOfferKeys.updated_at, DateTime, default= current_time, nullable= False)
     
-    member_sub    = relationship(MemSubKeys.py_table_name, uselist= False, back_populates=MemSubKeys._promo)
+#     member_sub    = relationship(MemSubKeys.py_table_name, uselist= False, back_populates=MemSubKeys._promo)
+    
     
 
 class Post(Base):
-    __tablename__ = MemFavRecKeys.table_name
+    __tablename__ = PostKeys.table_name
     id            = Column(PostKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     member_id     = Column(PostKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK), nullable= False)
-    mem_sub_id    = Column(PostKeys.mem_sub_id, UUID(as_uuid=True), ForeignKey(MemSubKeys.memsub_id_FK), nullable= True)
-    ass_post_id   = Column(PostKeys.mem_sub_id, UUID(as_uuid=True), ForeignKey(PostKeys.post_id_FK), nullable= True)
+    ass_post_id   = Column(PostKeys.ass_post_id, UUID(as_uuid=True), ForeignKey(PostKeys.post_id_FK), nullable= True)
 
-    intrst_id     = Column(PostKeys.intrst_id, UUID(as_uuid=True), ForeignKey(InterestAreaKeys.int_id_FK), nullable= False)
-    lang_id       = Column(PostKeys.lang_id, UUID(as_uuid=True), ForeignKey(LanguageKeys.lang_id_FK), nullable= False)
+    intrst_id     = Column(PostKeys.intrst_id, SmallInteger, ForeignKey(InterestAreaKeys.int_id_FK), nullable= True)
+    lang_id       = Column(PostKeys.lang_id, SmallInteger, ForeignKey(LanguageKeys.lang_id_FK), nullable= True)
     
-    is_anonymous  = Column(PostKeys.is_anonymous, Boolean, nullable= False, default= PostKeys.key_default)
-    is_drafted    = Column(PostKeys.is_drafted, Boolean, nullable= False, default= PostKeys.key_default)
-    is_blocked    = Column(PostKeys.is_blocked, Boolean, nullable= False, default= PostKeys.key_default)
+    # is_anonymous  = Column(PostKeys.is_anonymous, Boolean, nullable= False, default= PostKeys.key_default)
+    # is_drafted    = Column(PostKeys.is_drafted, Boolean, nullable= False, default= PostKeys.key_default)
+    # is_blocked    = Column(PostKeys.is_blocked, Boolean, nullable= False, default= PostKeys.key_default)
 
     type          = Column(PostKeys.type, String, nullable= False)
+    title         = Column(PostKeys.title, String, nullable= True)
     body          = Column(PostKeys.body, String, nullable= True)
 
     created_at    = Column(PostKeys.created_at, DateTime, default = current_time  ,nullable= False)
     updated_at    = Column(PostKeys.updated_at, DateTime, default = current_time  ,nullable= False)
 
-
     member_profile      = relationship(MemberProfileKeys.py_table_name, back_populates=MemberProfileKeys._member_posts)
-    member_sub          = relationship(MemSubKeys.py_table_name, back_populates=MemSubKeys._member_posts)
     total_post_count    = relationship(MemTotalPostKeys.py_table_name, uselist= False, back_populates=MemTotalPostKeys._post)
+    
+    ass_post = relationship("Post", remote_side=[id], backref = backref(PostKeys._answers, cascade="all, delete-orphan"))
 
-    associated_post     = relationship(PostKeys.py_table_name, back_populates=PostKeys._parent_post)
-    parent_post         = relationship(PostKeys.py_table_name, back_populates=PostKeys._associated_post)
+    # associated_post     = relationship(PostKeys.py_table_name, back_populates=PostKeys._parent_post)
+    # parent_post         = relationship(PostKeys.py_table_name, back_populates=PostKeys._associated_post)
 
 
 class MemFavReceived(Base):
@@ -299,3 +328,25 @@ class MemInvites(Base):
     updated_at    = Column(MemInvitesKeys.updated_at, DateTime, default = current_time  ,nullable= False)
 
     member_profile = relationship(MemberProfileKeys.py_table_name, back_populates=MemberProfileKeys._post_invites)
+
+
+class MemAliasHist(Base):
+    __tablename__ = MemAliasHistKeys.table_name
+    
+    id            = Column(MemAliasHistKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    member_id     = Column(MemAliasHistKeys.member_id, UUID(as_uuid=True), ForeignKey(MemberProfileKeys.mem_id_FK), nullable= False)
+    
+    alias         = Column(MemAliasHistKeys.alias, String(length=20), nullable=False)
+    created_at    = Column(MemAliasHistKeys.created_at, DateTime, default = current_time, nullable= False)
+    
+    member_profile = relationship(MemberProfileKeys.py_table_name, back_populates=MemberProfileKeys._mem_alias_hist)
+    
+    
+class AliasHist(Base):
+    __tablename__ = AliasHistKeys.table_name
+    
+    id            = Column(AliasHistKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    alias         = Column(AliasHistKeys.alias, String(length=20), nullable=False, unique= True)
+    
+    created_at    = Column(AliasHistKeys.created_at, DateTime, default = current_time, nullable= False)
+    

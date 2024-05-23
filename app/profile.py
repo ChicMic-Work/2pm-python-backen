@@ -10,7 +10,7 @@ from crud.c_auth import (
 
 from schemas.s_choices import (
     LangIACreate, LangIAResponse,
-    ChoicesCreate
+    ChoicesCreate, MemberChoicesReq
 )
 
 from schemas.s_profile import (
@@ -25,10 +25,11 @@ from database.models import (
 )
 
 from utilities.constants import (
-    current_time, ALIAS_VALID, 
+    current_time, ALIAS_VALID, ALIAS_ATLEAST,
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
-    ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL
+    ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
+    ChoicesType
 )
 
 from utilities.common import normalize_nickname
@@ -61,7 +62,8 @@ router = APIRouter(
 
 
 @router.post(
-    "/create/"
+    "/create/",
+    response_model= MemberProfileResponse
     )
 async def create_profile(
     request: Request,
@@ -73,34 +75,36 @@ async def create_profile(
     try:
         user: MemberProfile = await get_user_by_id(db, request.user.id)
         try:
-            alias = normalize_nickname(profile.alias)
+            normalized_alias = normalize_nickname(profile.alias)
         except:
             response.status_code= status.HTTP_400_BAD_REQUEST
             return {
                 "message": ALIAS_INVALID_CHARACTER,
                 "is_valid": False
             }
+            
         
-        if not alias or len(alias) > 20:
+        
+        if not profile.alias or len(profile.alias) > 20 or not normalized_alias:
             response.status_code= status.HTTP_400_BAD_REQUEST
             return {
-                "message": ALIAS_INVALID,
+                "message": ALIAS_ATLEAST,
                 "is_valid": False
             }
         
         
-        if user.alias and alias != user.alias and await get_used_alias(db, alias):
+        if user.alias and profile.alias != user.alias and await get_used_alias(db, normalized_alias):
             response.status_code= status.HTTP_400_BAD_REQUEST
             return {
                 "message": ALIAS_EXISTS,
                 "is_valid": False
             }
         
-        if user.alias and alias == user.alias:
+        if user.alias and profile.alias == user.alias:
             pass
         else:
-            user.alias = alias
-            mem_alias, all_alias = await create_user_alias(alias, user.id )
+            user.alias = profile.alias
+            mem_alias, all_alias = await create_user_alias(profile.alias, normalized_alias, user.id )
             db.add(mem_alias)
             db.add(all_alias)
             
@@ -161,7 +165,7 @@ async def get_used_aliases(
 ):
     
     try:
-        alias = normalize_nickname(alias)
+        normalized_alias = normalize_nickname(alias)
     except:
         response.status_code= status.HTTP_400_BAD_REQUEST
         return {
@@ -169,10 +173,10 @@ async def get_used_aliases(
             "is_valid": False
         }
     
-    if not alias or len(alias) > 20:
+    if not alias or len(alias) > 20 or not normalized_alias:
         response.status_code= status.HTTP_400_BAD_REQUEST
         return {
-                "message": ALIAS_INVALID,
+                "message": ALIAS_ATLEAST,
                 "is_valid": False
             }
     
@@ -183,7 +187,7 @@ async def get_used_aliases(
             "is_valid": True
         }
     
-    if await get_used_alias(db, alias):
+    if await get_used_alias(db, normalized_alias):
         response.status_code= status.HTTP_400_BAD_REQUEST
         return {
             "message": ALIAS_EXISTS,
@@ -235,3 +239,44 @@ async def upload_profile_image(
             "exc": str(exc)
         }
     
+@router.post(
+    "/choices/",
+)
+async def member_languages(
+    request: Request,
+    response: Response,
+    lang_ia: MemberChoicesReq,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user: MemberProfile = await get_user_by_id(db, request.user.id)
+        
+        if lang_ia.type == ChoicesType.Language:
+            languages = await create_user_language_choices(db, lang_ia.lang_ia)
+            user.language_choices.clear()
+            user.language_choices.extend(languages)
+            return_lang = True
+        else:
+            interests = await create_user_interest_choices(db, lang_ia.lang_ia)
+            user.interest_area_choices.clear()
+            user.interest_area_choices.extend(interests)
+            return_lang = False
+            
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        
+        if return_lang:
+            return user.language_choices
+        return user.interest_area_choices
+        
+        # return {
+        #     "message": "Created user choices"
+        # }
+    except Exception as exc:
+        
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {
+            "message": str(exc)
+        }

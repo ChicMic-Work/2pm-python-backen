@@ -51,15 +51,21 @@ async def create_choices(
             created_choices = await create_interest_choices(db, choices.lang_ia)
             
         response_list: List[LangIAResponse] = []
-        for res in created_choices:
-            response_list.append(LangIAResponse(
-                id = res.id,
-                name= res.name
-            )) 
+        # for res in created_choices:
+        #     response_list.append(LangIAResponse(
+        #         id = res.id,
+        #         name= res.name
+        #     )) 
         
         db.add_all(created_choices)
         await db.commit()
-        return response_list
+        # for i in created_choices:
+        #     aa = await db.refresh(i)
+        #     response_list.append(LangIAResponse(
+        #         id = aa.id,
+        #         name= aa.name
+        #     )) 
+        return "created"
 
     except Exception as e:
         await db.rollback()

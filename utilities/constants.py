@@ -27,33 +27,50 @@ S3_REGION       = os.getenv("S3_REGION")
 S3_ACCESS_KEY_ID        = os.getenv("S3_ACCESS_KEY_ID")
 S3_SECRET_ACCESS_KEY    = os.getenv("S3_SECRET_ACCESS_KEY")
 
+#Redis
+REDIS_DB        = int(os.getenv("REDIS_DB"))
 
 current_time = datetime.now() 
 access_token_expire = timedelta(days=30)
 
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
-    '/tr', '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user'
+    '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
+    '/posts/create/', '/profile/choices/', '/auth/logout/'
 ]
+
 
 class SocialType:
     Google = 0
     Apple = 1
     
+    
 class ChoicesType:
     Interest_Area = 0
     Language = 1
+    
     
 class PromoType:
     T = "Free Trial"
     S = "Fee Waiver"
     M = "Manual"
     
+
+class PostType:
+    B = "Blog"
+    Q = "Question"
+    A = "Answer" 
+    P = "Poll"
+    
+    types_list = ['B', 'Q', 'A', 'P']
+    
 ALIAS_VALID     = "Valid"
 ALIAS_INVALID   = "Invalid"
-ALIAS_EXISTS    = "Nickname Already Exists"
+ALIAS_EXISTS    = "Nickname is already in use"
 ALIAS_CURRENT   = "Current"
-ALIAS_INVALID_CHARACTER = "Nickname should not contain special characters and numbers"
+ALIAS_INVALID_CHARACTER = "Your input contains an invalid character"
+ALIAS_ATLEAST = "Nickname must contain at least one letter"
+ALIAS_STARTS = "Nickname must start with a letter"
 
 IMAGE_FAIL = "Failed to save image"
 

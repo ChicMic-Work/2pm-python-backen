@@ -18,19 +18,65 @@ def unaccent(s):
         'ð': 'd', 'Ð': 'D',
         '¿': '' , '¡': '' , 'ß': 'ss'
     }
+    
     return ''.join(accent_map.get(char, char) for char in s)
+
+def currency_unaccent(s):
+    """
+    Simulate the unaccent function.
+    Replace accented characters with their non-accented equivalents.
+    """
+    currency_single_accent_map = {
+        '$': '', '€': '', '£': '', '¥': '', '₹': '', '₽': '', '₩': '', '៛': '', '₡': '',
+         '؋': '', 'Դ': '', 'ƒ': '', '₼': '', 
+    "৳": "",
+    "$": "",
+    "৳": "",
+    "€": "",
+    "₣": "",
+    "៛": "",
+    "₡": "",
+    "₱": "",
+    "ƒ": "",
+    "₱": "",
+    "ლ": "",
+    "﷼": "",
+    "₪": "",
+    "〒": "",
+    "₭": "",
+    "ރ": "",
+    "₮": "",
+    "₦": "",
+    "₲": "",
+    "₱": "",
+    "ł": "",
+    "₽": "",
+    "₫": ""
+}   
+    currency_string_list = ["ب.د", 'د.ج', 'лв', "ع.د", "د.ا", "د.ك", "ل.ل", "ل.د", "د.م.", "ر.ع.","ر.ق", "ден"]
+    
+    cur_sing =  ''.join(currency_single_accent_map.get(char, char) for char in s)
+    
+    for i in currency_string_list:
+        if i in cur_sing:
+            cur_sing.replace(i, '')
+            
+    return cur_sing
+
 
 def normalize_nickname(nickname):
     
-    normalized_nickname = unidecode(nickname)
+    normalized_nickname = currency_unaccent(nickname)
+    
+    normalized_nickname = unidecode(normalized_nickname)
     
     # Remove accents
     normalized_nickname = unaccent(normalized_nickname)
     
-    pattern = re.compile(r'[^a-zA-Z\s]')
+    # pattern = re.compile(r'[^a-zA-Z\s]')
     
-    if pattern.search(normalized_nickname):
-        raise
+    # if pattern.search(normalized_nickname):
+    #     raise
     
     # Replace non-whitespace characters with a single space
     normalized_nickname = re.sub(r'[^a-zA-Z\s]', ' ', normalized_nickname)

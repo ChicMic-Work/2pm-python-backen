@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 from pydantic import ValidationError
 
@@ -13,6 +13,13 @@ from schemas.s_auth import (
     MemberSignup, MemberSignupResponse,
     MemberProfileAuthResponse
 )
+
+from schemas.s_choices import (
+    LangIAResponse
+)
+
+from redis.asyncio import Redis
+
 
 from dependencies import (
     get_db, 
@@ -36,7 +43,8 @@ from crud.c_profile import (
 
 from utilities.constants import (
     access_token_expire,
-    SocialType
+    SocialType, AuthTokenHeaderKey,
+    REDIS_DB
 )
 
 """
@@ -156,16 +164,39 @@ async def login_user(
         access_token = await create_access_token(db_user.id, access_token_expire)
         
         memb_resp = None
+        
         if not new_user:
             db_user = await get_user_by_id(db, db_user.id)
+            if not db_user.image:
+                image = None
+            else:
+                image = db_user.image
+            lang_list = []
+            int_list = []
+            if db_user.language_choices:
+                lang_list = []
+                for i in db_user.language_choices:
+                    lang_list.append(LangIAResponse(
+                        id = i.id,
+                        name = i.name,
+                        create_date= i.create_date
+                    ))
+            if db_user.language_choices:
+                int_list = []
+                for i in db_user.interest_area_choices:
+                    int_list.append(LangIAResponse(
+                        id = i.id,
+                        name = i.name,
+                        create_date= i.create_date
+                    ))
             memb_resp = MemberProfileAuthResponse(
                 alias = db_user.alias,
                 bio= db_user.bio,
                 gender= db_user.gender,
                 is_dating= db_user.is_dating,
-                image= db_user.image,
-                language_choices= db_user.language_choices,
-                interest_area_choices= db_user.interest_area_choices
+                image= image,
+                language_choices= lang_list,
+                interest_area_choices= int_list
             )
 
         return MemberSignupResponse(
@@ -185,3 +216,32 @@ async def login_user(
         await db.rollback()
         raise HTTPException(status_code=status_code, detail=msg) from exc
     
+
+@router.post(
+    "/logout/",
+    status_code = status.HTTP_200_OK
+    )
+async def user_logged_out(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    red = await Redis(db = REDIS_DB)
+    revoked_tokens = await red.get('revoked_tokens')
+    
+    if revoked_tokens:
+        revoked_tokens = revoked_tokens.decode('utf-8')
+        revoked_tokens += f' {Auth_token}'
+    else:
+        revoked_tokens = Auth_token
+    
+    
+    await red.set('revoked_tokens', revoked_tokens)
+    await red.close()
+    
+
+
+    return {
+        "message": "User logged out"
+    }

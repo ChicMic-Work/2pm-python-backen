@@ -30,9 +30,9 @@ class MemberProfileAuthResponse(BaseModel):
     bio: str = None
     is_dating: bool = True
     gender: str = None
-    image: str = None
-    language_choices: List[LangIAResponse] = []
-    interest_area_choices: List[LangIAResponse] = []
+    image: str | None = None
+    language_choices: List[LangIAResponse] | None= []
+    interest_area_choices: List[LangIAResponse] | None = []
 
 class MemberSignupResponse(BaseModel):
     token: str

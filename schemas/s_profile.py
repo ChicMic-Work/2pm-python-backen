@@ -35,13 +35,14 @@ class MemberProfileBase(BaseModel):
     
     
 class MemberProfileCreate(MemberProfileBase):
-    language_choices: List[UUID] = []
-    interest_area_choices: List[UUID] = []
+    language_choices: List[int] = []
+    interest_area_choices: List[int] = []
     
 class MemberProfileResponse(BaseModel):
     alias: str
     bio: str = None
     is_dating: bool = True
     gender: str
+    image: str |None = None
     language_choices: List[LangIAResponse] = []
     interest_area_choices: List[LangIAResponse] = []

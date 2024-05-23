@@ -34,8 +34,7 @@ async def create_user(
 
     db_user = MemberProfile(
             id = uuid7(),
-            created_at= current_time,
-            updated_at= current_time,
+            join_at= current_time,
         )
     
     if user.social_type == 1:

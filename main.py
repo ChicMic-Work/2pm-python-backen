@@ -35,6 +35,7 @@ from utilities.constants import (
     DEFAULT_FROM_EMAIL,
     AuthTokenHeaderKey
 )
+import redis
 
 app = FastAPI()
 app.include_router(auth.router)
@@ -60,12 +61,13 @@ conf = ConnectionConfig(
     VALIDATE_CERTS = True
 )
 
+
 @app.get("/")
 def default(
     request: Request,
     db: AsyncSession = Depends(get_db)
-):
-    return 'Yo'
+):  
+    return '2PM Club'
 
 @app.get("/template_check", response_class=HTMLResponse)
 async def send_email_check(

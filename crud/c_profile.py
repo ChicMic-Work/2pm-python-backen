@@ -70,6 +70,7 @@ async def get_used_alias(
 
 async def create_user_alias(
     name: str,
+    normalized_alias: str,
     user_id: UUID
 ) -> AliasHist | None:  
     
@@ -79,7 +80,7 @@ async def create_user_alias(
     )
     
     all_alias = AliasHist(
-        alias = name
+        alias = normalized_alias
     )
 
     return mem_alias, all_alias

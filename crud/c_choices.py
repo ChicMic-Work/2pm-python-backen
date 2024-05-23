@@ -32,9 +32,8 @@ async def create_language_choices(
             raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail=f"Language '{language.name}' already exists")
         
         new_language = models.Languages(
-                id = uuid7(),
                 name= language.name,
-                created_at= current_time
+                create_date= current_time.date()
             )
         
         languages.append(new_language)
@@ -56,9 +55,8 @@ async def create_interest_choices(
             raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail=f"Language '{interest.name}' already exists")
         
         new_interest = models.InterestAreas(
-                id = uuid7(),
                 name= interest.name,
-                created_at= current_time
+                create_date= current_time.date()
             )
         
         interests.append(new_interest)
@@ -73,9 +71,9 @@ async def get_all_created_choices(
     if type not in (0,1):
         raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail= f"type :{type}, is not valid")
     if type == ChoicesType.Language:
-        query = select(models.Languages).order_by(asc(models.LanguageKeys.created_at))
+        query = select(models.Languages).order_by(asc(models.LanguageKeys.create_data))
     elif type == ChoicesType.Interest_Area:
-        query = select(models.InterestAreas).order_by(asc(models.InterestAreaKeys.created_at))
+        query = select(models.InterestAreas).order_by(asc(models.InterestAreaKeys.create_data))
         
     result = await db.execute(query)
     return result.scalars().all()
