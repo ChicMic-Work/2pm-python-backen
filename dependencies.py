@@ -33,11 +33,12 @@ async def get_db():
         
 async def create_access_token(
     user_id: UUID, 
+    session,
     expires: timedelta
 ):
 
     expires_access = current_time + expires
-    access_payload = {'id': str(user_id), 'exp': expires_access} #'sub': email, 
+    access_payload = {'id': str(user_id), 'exp': expires_access, 'ses': str(session.id)} #'sub': email, 
     access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
     
     # expires_refresh = expires_access + timedelta(days=30)

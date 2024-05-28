@@ -36,7 +36,7 @@ router = APIRouter(
 
 @router.post(
     "/create/",
-    response_model = List[LangIAResponse],
+    # response_model = List[LangIAResponse],
     status_code = status.HTTP_201_CREATED
     )
 async def create_choices(

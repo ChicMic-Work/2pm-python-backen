@@ -160,8 +160,9 @@ async def login_user(
             
         await db.commit()
         await db.refresh(db_user)
+        await db.refresh(session)
             
-        access_token = await create_access_token(db_user.id, access_token_expire)
+        access_token = await create_access_token(db_user.id, session, access_token_expire)
         
         memb_resp = None
         
