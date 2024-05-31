@@ -1,129 +1,226 @@
 class BaseKey():
-    created_at = "Created_At"
-    updated_at = "Updated_At"
+    
+    ID          = "id"
+    
+    create_at   = "create_at"
+    update_at   = "update_at"
+    add_at      = "add_at"
+    add_type    = "add_type"
+    
+    add_date    = "add_date"
+    add_by      = "add_by"
+    
+    schema_mbr      = "mbr"
+    schema_pst      = "pst"
+    schema_clb      = "clb"
     
     @classmethod
     def column_with_tn(cls, key_nm: str) -> str:
         return f"{cls.table_name}.{key_nm}"
 
 
+
+
 class MemberProfileKeys(BaseKey):
     
-    table_name  = "Mbr_Profile_Hist"
-    _table_name_curr    = "Mbr_Profile_Curr"
-    _table_name_prev    = "Mbr_Profile_Prev"
+    table_name_curr    = "mbr_profile_curr"
+    table_name_hist    = "mbr_profile_hist"
     
-    id          = "Mbr_ID"
-    apple_id    = "Apple_ID"
-    google_id   = "Google_ID"
-    join_at     = "Mbr_Join_At"
     
-    alias       = "DF_Nicknm"
-    bio         = "DF_Bio"
-    image       = "DF_Img"
-    gender      = "Gender"
-    is_dating   = "Is_Dating"
     
-    add_at      = "Add_At"
-    is_current  = "Is_Current"
+    id          = "mbr_id"
+    apple_id    = "apple_id"
+    google_id   = "google_id"
+    join_at     = "mbr_join_at"
     
-    mem_id_FK   = table_name + "." + id
+    alias       = "df_alias"
+    alias_std   = "df_alias_std"
+    
+    bio         = "df_bio"
+    image       = "df_img"
+    gender      = "gender"
+    is_dating   = "is_dating "
+    
+    mem_id_FK   = BaseKey.schema_mbr + "." + table_name_curr + "." + id
 
     gender_validation = ["Male", "Female", "Other"]
     is_dating_default = 0
 
-    py_table_name = "MemberProfile"
-    _member_posts = "member_posts"
-    _mem_sub    = "member_sub"
-    _lang       = "members"
-    _int_area   = "members"
-    _mem_status = "status"
-    _signin     = "session"
-    _promo      = "promo_offers"
+    py_table_name = "MemberProfileCurr"
+    
+    _mem_bill_curr  = "mem_bill_curr"
+    _mem_bill_prev  = "mem_bill_prev"
+    
+    _waiver         = "waivers"
+    _promo          = "promos"
+    
+    _mem_lang   = "language_choices"
+    _mem_int_area   = "interest_area_choices"
+    
+    _mem_status_curr = "status_curr"
+    _mem_status_hist = "status_hist"
+    
+    _sign_in_curr     = "session_curr"
+    _sign_in_prev     = "session_prev"
+    
+    _mem_foll_curr_fling = "mem_foll_curr_fling"
+    _mem_foll_curr_flwed = "mem_foll_curr_flwed"
+    
+    _mem_foll_prev_fling = "mem_foll_prev_fling"
+    _mem_foll_prev_flwed = "mem_foll_prev_flwed"
+    
+    _view_followers_count= "followers_count"
+    
+    _mem_curr_muted     = "mem_curr_muted"
+    _mem_curr_muted_by  = "mem_curr_muted_by"
+    
+    _mem_prev_muted     = "mem_prev_muted"
+    _mem_prev_muted_by  = "mem_prev_muted_by"
+    
+    _mem_curr_spam     = "mem_curr_spam"
+    _mem_curr_spam_by  = "mem_curr_spam_by"
+    
+    _mem_prev_spam     = "mem_prev_spam"
+    _mem_prev_spam_by  = "mem_prev_spam_by"
+    
+    _mem_ban_curr = "ban_curr"
+    _mem_ban_prev = "ban_prev"
+    
+    _mem_curr_reported     = "mem_curr_reported"
+    _mem_curr_reported_by  = "mem_curr_reported_by"
+    
+    _mem_posts         = "posts"
+    _mem_draft_posts   = "draft_posts"
+    
+    _mem_comments      = "comments"
+    
+    _poll_taken        = "poll_taken"
+    
+    _daily_ans         = "daily_ans"
+    
+    _mem_tags          = "mem_tags"
+    
+    _mem_post_like_curr = "mem_post_like_curr"
+    _mem_post_like_hist = "mem_post_like_hist"
+    
+    _mem_post_fav_curr  = "mem_post_fav_curr"
+    _mem_post_fav_hist  = "mem_post_fav_hist"
+    
+    _mem_post_fol_curr  = "mem_post_fol_curr"
+    _mem_post_fol_hist  = "mem_post_fol_hist"
+    
+    _mem_poll_post_inviting  = "poll_post_inviting"
+    _mem_poll_post_invited   = "poll_post_invited"
+    
+    _mem_ques_post_inviting  = "ques_post_inviting"
+    _mem_ques_post_invited   = "ques_post_invited"
+    
+    _mem_cmnt_like      = "mem_cmnt_like"
+    
+    _feedback           = "feedback"
+    
+    _post_share_by      = "post_share_by"
+    _post_share_to      = "post_share_to"
+    
+    _promo              = "promo_offers"
     _fav_received       = "favorite_like_received"
     _post_invites       = "post_invites"
     _total_post_count   = "total_post_count"
     _mem_alias_hist     = "member_alias_hist"
-    
+
+
+
 
 class MmbLangKeys(BaseKey):
     
-    table_name  = "Mbr_Language_Choice"
-    id          = "ID"
-    member_id   = "Mbr_ID"
-    language_id = "Lang_ID"
-    add_at      = "Add_At"
+    table_name  = "mbr_language"
     
+    id          = "id"
+    member_id   = "mbr_id"
+    language_id = "lang_id"
+    
+    py_table_name = "MemberLang"
+    _memb         = "member_profile"
     
 class MmbIntAreaKeys(BaseKey):
     
-    table_name  = "Mbr_Interest_Area"
-    id          = "ID"
-    member_id   = "Mbr_ID"
-    int_area_id = "Int_Area_ID"
-    add_at      = "Add_At"
+    table_name  = "mbr_topic_area"
     
-
+    id          = "id"
+    member_id   = "mbr_id"
+    int_area_id = "topic_area_id"
+    
+    py_table_name = "MemberIA"
+    
 class LanguageKeys(BaseKey):
     
-    table_name  = "Lang_Choice_List"
-    id          = "Lang_ID"
-    name        = "Lang_Nm"
-    create_data = "Create_Date"
+    table_name  = "language_choice"
+    id          = "lang_id"
+    name        = "lang_nm"
     
-    lang_id_FK  = table_name + "." + id 
+    lang_id_FK  = BaseKey.schema_clb+ "." + table_name + "." + id 
     
     py_table_name = "Languages"
     _memb       = "language_choices"
+    _posts      = "posts"
+    _draft_posts= "draft_posts"
     
-
 class InterestAreaKeys(BaseKey):
     
-    table_name  = "Int_Area_List"
-    id          = "Int_Area_ID"
-    name        = "Int_Area_Nm"
-    create_data = "Create_Date"
+    table_name  = "topic_area"
+    id          = "topic_area_id"
+    name        = "topic_area_nm"
     
-    int_id_FK   = table_name + "." + id 
+    int_id_FK   = BaseKey.schema_clb+ "." + table_name + "." + id 
     
     py_table_name = "InterestAreas"
     _memb       = "interest_area_choices"
+    _posts      = "posts"
+    _draft_posts= "draft_posts"
+    
+
+
+
+class MbrStatusKeys(BaseKey):
+    
+    table_name_curr    = "mbr_status_curr"
+    table_name_hist    = "mbr_status_hist"
+    
+    member_id   = "mbr_id"
+    
+    product_id  = "mbrshp_prod_id"
+    product_fee = "mbrshp_prod_fee_amt"
+    product_period = "mbrshp_prod_period"
+    
+    member_status = "mbr_status"
+    is_banned   = "is_banned"
     
     
-class MemberStatusKeys(BaseKey):
+    is_banned_default = 0
     
-    table_name  = "T_Member_Status"
-    id          = "Member_Status_ID"
-    member_id   = "Member_ID"
-    status      = "Status"
-    deleted_at  = "Deleted_At"
-    banned_at   = "Banned_At"
-    report_count= "Report_Count"
-    is_dating   = "Is_Dating"
+    py_table_name = "MbrStatusCurr"
+    py_table_name_hist = "MbrStatusHist"
     
-    status_default = 2
-    is_dating_default = 0
-    report_count_default = 0
-    validate_status = (1,2,3,4)
-    
-    py_table_name = "MemberStatus"
     _memb         = "member_profile"
-    
-    
+
+
 class SignInKeys(BaseKey):
     
-    table_name  = "T_Signin_Session_Hist"
-    id          = "Signin_Session_Hist_ID"
-    member_id   = "Member_ID"
-    signin_at   = "Signin_At"
-    signin_id   = "Signin_ID"
-    type        = "Signin_Type"
-    ip          = "Signin_IP"
-    device_type = "Signin_Device_Type"
-    device_model= "Signin_Device_Model"
-    signout_at  = "Signout_At"
+    table_name_curr  = "mbr_session_curr"
+    table_name_prev  = "mbr_session_prev"
     
-    py_table_name = "SignInSession"
+    id          = "session id"
+    member_id   = "mbr_id"
+    signin_at   = "sign_in_at"
+    signin_id   = "sign_in_id"
+    type        = "sign_in_type"
+    ip          = "sign_in_ip"
+    device_type = "sign_in_device_type"
+    device_model= "sign_in_device_model"
+    signout_at  = "sign_out_at"
+    
+    py_table_name = "SessionCurr"
+    py_table_name_prev = "SessionPrev"
     _memb       = "member_profile"
     
     

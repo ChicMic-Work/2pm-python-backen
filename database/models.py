@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, backref
+from sqlalchemy.schema import CreateTable
 
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -42,6 +43,7 @@ engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
 SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
 
 Base = declarative_base()
+
 
 default_uuid7 = text("uuid_generate_v7()")
 
@@ -350,3 +352,89 @@ class AliasHist(Base):
     
     created_at    = Column(AliasHistKeys.created_at, DateTime, default = current_time, nullable= False)
     
+
+# metadata = MetaData()
+# metadata.reflect(bind=engine)
+# ddl_script = ""
+# for table in metadata.tables.values():
+#     create_table_ddl = str(CreateTable(table).compile(engine))
+#     ddl_script += create_table_ddl + ";\n\n"
+    
+# with open("database_schema.sql", "w") as f:
+#     f.write(ddl_script)
+
+import asyncio
+async def get_ddl_script():
+    async with engine.begin() as conn:
+        # Run synchronous inspection within the context of an asynchronous connection
+        def sync_inspect(connection):
+            metadata = MetaData()
+            metadata.reflect(bind=connection)
+            ddl_script = ""
+            for table in metadata.tables.values():
+                create_table_ddl = str(CreateTable(table).compile(engine.sync_engine))
+                ddl_script += create_table_ddl + ";\n\n"
+            return ddl_script
+
+        ddl_script = await conn.run_sync(sync_inspect)
+        return ddl_script
+
+# async def main():
+#     ddl_script = await get_ddl_script()
+#     print(ddl_script)
+#     with open("database_schema.sql", "w") as f:
+#         f.write(ddl_script)
+
+# Run the main function
+# asyncio.run(main())
+
+from sqlalchemy_schemadisplay import create_schema_graph
+
+def generate_er_diagram(output_file='er_diagram.png'):
+    # Create a metadata object
+    metadata = MetaData()
+    metadata.reflect(bind=engine)
+
+    # Generate the ER diagram
+    graph = create_schema_graph(metadata=metadata,
+                                show_datatypes=True, # The image would get nasty big if we'd show the datatypes
+                                show_indexes=True, # ditto for indexes
+                                rankdir='LR', # From left to right (instead of top to bottom)
+                                concentrate=False,
+                                engine= engine# Don't try to join the relation lines together
+                                )
+    graph.write_png(output_file)
+
+# generate_er_diagram()
+
+"""
+async def get_metadata():
+    async with engine.begin() as conn:
+        def sync_inspect(connection):
+            metadata = MetaData()
+            metadata.reflect(bind=connection)
+            return metadata
+
+        metadata = await conn.run_sync(sync_inspect)
+        return metadata
+
+async def generate_er_diagram(metadata):
+    # metadata = await get_metadata()
+
+    # Generate the ER diagram
+    graph = create_schema_graph(metadata=metadata,
+                                show_datatypes=True,  # The image would get nasty big if we'd show the datatypes
+                                show_indexes=True,    # ditto for indexes
+                                rankdir='LR',         # From left to right (instead of top to bottom)
+                                concentrate=False,
+                                engine= engine.sync_engine# Don't try to join the relation lines together
+                                )
+    graph.write_png('er_diagram.png')
+    
+async def main():
+    metadata = await get_metadata()
+    await generate_er_diagram(metadata)
+
+# Run the diagram generation
+asyncio.run(main())
+"""

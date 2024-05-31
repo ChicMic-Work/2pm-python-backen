@@ -63,7 +63,21 @@ class PostType:
     P = "Poll"
     
     types_list = ['B', 'Q', 'A', 'P']
+
+
+class TableCharLimit:
+    post_title  = 70
+    post_detail = 5000
+    alias       = 20
+    bio         = 150
+    comment     = 300
+    tag         = 25
+    feedback    = 1000
     
+    _255        = 255
+    
+
+
 ALIAS_VALID     = "Valid"
 ALIAS_INVALID   = "Invalid"
 ALIAS_EXISTS    = "Nickname is already in use"

@@ -18,3 +18,5 @@ fastapi[all]
 boto3
 redis
 pyjwt
+uuid7
+unidecode
