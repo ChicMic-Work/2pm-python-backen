@@ -193,6 +193,8 @@ async def login_user(
             memb_resp = MemberProfileAuthResponse(
                 alias = db_user.alias,
                 bio= db_user.bio,
+                google_id= db_user.google_id,
+                apple_id= db_user.apple_id,
                 gender= db_user.gender,
                 is_dating= db_user.is_dating,
                 image= image,

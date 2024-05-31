@@ -28,6 +28,8 @@ class MemberSignup(BaseModel):
 class MemberProfileAuthResponse(BaseModel):
     alias: str = None
     bio: str = None
+    google_id: str| None = None
+    apple_id: str| None = None
     is_dating: bool = True
     gender: str = None
     image: str | None = None

@@ -63,7 +63,7 @@ router = APIRouter(
 
 @router.post(
     "/create/",
-    response_model= MemberProfileResponse
+    # response_model= MemberProfileResponse
     )
 async def create_profile(
     request: Request,
@@ -125,6 +125,39 @@ async def create_profile(
         
         await db.commit()
         await db.refresh(user)
+        
+        language_choices = []
+        interest_area_choices = []
+        
+        for lang in user.language_choices:
+            language_choices.append(
+                LangIAResponse(
+                    id = lang.id,
+                    name = lang.name,
+                    create_date= lang.create_date
+                )
+            )
+        
+        for intr in user.interest_area_choices:
+            interest_area_choices.append(
+                LangIAResponse(
+                    id = intr.id,
+                    name = intr.name,
+                    create_date= intr.create_date
+                )
+            )
+        
+        return MemberProfileResponse(
+            alias= user.alias,
+            bio= user.bio,
+            google_id= user.google_id,
+            apple_id= user.apple_id,
+            is_dating= user.is_dating,
+            image= user.image,
+            gender= user.gender,
+            language_choices= language_choices,
+            interest_area_choices= interest_area_choices
+        )
         
         return user
         
@@ -238,7 +271,37 @@ async def upload_profile_image(
             "message": IMAGE_FAIL,
             "exc": str(exc)
         }
-    
+ 
+@router.delete(
+    "/image/",
+)
+async def delete_profile_image(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        
+        db_user:MemberProfile = request.user
+        if db_user.image:
+            remove_file(db_user.image)
+            db_user.image = None
+            db.add(db_user)
+            await db.commit()
+        
+        return {
+            "image": None
+        }
+            
+    except Exception as exc:
+        db.rollback()
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {
+            "message": IMAGE_FAIL,
+            "exc": str(exc)
+        }
+        
 @router.post(
     "/choices/",
 )

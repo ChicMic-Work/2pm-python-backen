@@ -40,6 +40,8 @@ class MemberProfileCreate(MemberProfileBase):
     
 class MemberProfileResponse(BaseModel):
     alias: str
+    google_id: str | None = None
+    apple_id: str | None= None
     bio: str = None
     is_dating: bool = True
     gender: str

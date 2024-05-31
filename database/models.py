@@ -1,3 +1,4 @@
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, backref
@@ -12,7 +13,9 @@ from sqlalchemy.ext.asyncio import (
 from datetime import datetime, timezone
 import pytz
 from pydantic import EmailStr
-from utilities.constants import current_time
+# from utilities.constants import current_time
+
+current_time = datetime.now() 
 
 from sqlalchemy import (
     Boolean, Column, Integer, String, SmallInteger, 
@@ -37,9 +40,12 @@ from database.table_keys import (
 from sqlalchemy.orm import validates, relationship
 
 SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1"
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
+# engine = create_engine(SQLALCHEMY_DATABASE_URL,)
 SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
+# SessionLocal = sessionmaker(bind= engine, autocommit=False, autoflush=False)
 
 Base = declarative_base()
 
@@ -53,6 +59,8 @@ member_language_association = Table(
     Column(MmbLangKeys.language_id, SmallInteger, ForeignKey(LanguageKeys.lang_id_FK)),
     Column(MmbLangKeys.add_at, Date, default= current_time.date())
 )
+
+
 
 member_interest_area_association = Table(
     MmbIntAreaKeys.table_name,
@@ -349,4 +357,14 @@ class AliasHist(Base):
     alias         = Column(AliasHistKeys.alias, String(length=20), nullable=False, unique= True)
     
     created_at    = Column(AliasHistKeys.created_at, DateTime, default = current_time, nullable= False)
-    
+
+# Base.metadata.create_all(bind=engine)
+
+
+# from sqlalchemy import MetaData
+
+# meta = MetaData()
+
+# async def main():
+#     async with engine.begin() as conn:
+#         await conn.run_sync(Base.metadata.create_all)
