@@ -1,6 +1,7 @@
 from pydantic import (
     BaseModel, EmailStr,
-    NaiveDatetime, Field         
+    NaiveDatetime, Field,
+    AwareDatetime   
 )
 from typing import List, Optional
 from schemas.s_choices import (
@@ -20,6 +21,7 @@ class RefreshToken(Token):
 
 class MemberSignup(BaseModel):
     social_id: str
+    email_id: EmailStr | None = None
     social_type: int = Field(..., ge=SocialType.Google, le=SocialType.Apple) 
     token: str
     device_type: str
@@ -30,6 +32,9 @@ class MemberProfileAuthResponse(BaseModel):
     bio: str = None
     google_id: str| None = None
     apple_id: str| None = None
+    apple_email: EmailStr | None = None
+    google_email: EmailStr | None = None
+    join_at: AwareDatetime
     is_dating: bool = True
     gender: str = None
     image: str | None = None

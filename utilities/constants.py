@@ -2,6 +2,7 @@ import pytz, os
 from dotenv import load_dotenv
 
 from datetime import datetime, timedelta
+from sqlalchemy import func
 
 load_dotenv()
 SECRET_KEY  = os.getenv("SECRET_KEY")
@@ -30,7 +31,6 @@ S3_SECRET_ACCESS_KEY    = os.getenv("S3_SECRET_ACCESS_KEY")
 #Redis
 REDIS_DB        = int(os.getenv("REDIS_DB"))
 
-current_time = datetime.now() 
 access_token_expire = timedelta(days=30)
 
 AuthTokenHeaderKey = "Auth-Token"
@@ -40,9 +40,38 @@ protected_endpoints = [
 ]
 
 
+class AddType:
+
+    Insert = 'I'
+    Update = 'U'
+
+
+class ContentType:
+    
+    daily_club_ans  = "A"
+    post            = "P"
+    comment         = "C"
+    homepage        = "H"
+
+class TableCharLimit:
+    post_title  = 70
+    post_detail = 5000
+    alias       = 20
+    bio         = 150
+    comment     = 300
+    tag         = 25
+    feedback    = 1000
+    
+    _255        = 255
+    _330        = 330
+
+
 class SocialType:
     Google = 0
     Apple = 1
+
+    _0 = "Google"
+    _1 = "Apple"
     
     
 class ChoicesType:
@@ -71,7 +100,8 @@ ALIAS_CURRENT   = "Current"
 ALIAS_INVALID_CHARACTER = "Your input contains an invalid character"
 ALIAS_ATLEAST = "Nickname must contain at least one letter"
 ALIAS_STARTS = "Nickname must start with a letter"
-
+ALIAS_ATMOST = "Nickname must not exceed 20 characters"
+BIO_ATMOST = "Bio must not exceed 150 characters"
 IMAGE_FAIL = "Failed to save image"
 
 """

@@ -99,6 +99,7 @@ class BearerTokenAuthBackend(AuthenticationBackend):
     
             if not user:
                 raise AuthenticationError('Unauthorized Access')
+            user.__setattr__('ses', user_cred["ses"])
 
             return AuthCredentials(["authenticated"]), user
         

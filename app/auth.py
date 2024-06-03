@@ -1,4 +1,3 @@
-from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 from pydantic import ValidationError
@@ -7,6 +6,7 @@ from starlette import status
 from jose import JWTError
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 
 from schemas.s_auth import (
     Token, RefreshToken,
@@ -20,6 +20,11 @@ from schemas.s_choices import (
 
 from redis.asyncio import Redis
 
+from database.models import (
+    MemberProfileCurr,
+    SessionCurr,
+    SessionPrev
+)
 
 from dependencies import (
     get_db, 
@@ -29,6 +34,7 @@ from dependencies import (
     )
 
 from crud.c_auth import (
+    delete_session,
     get_user_by_social_id, 
     create_user,
     create_signin_session,
@@ -37,8 +43,10 @@ from crud.c_auth import (
     get_user_by_id
     )
 
-from crud.c_profile import (
-    create_initial_member_status
+from crud.c_choices import (
+    get_mem_choices,
+    get_mem_languages,
+    get_mem_interest_areas
 )
 
 from utilities.constants import (
@@ -126,98 +134,82 @@ async def login_user(
     request: Request,
     create_user_request: MemberSignup,
     db: AsyncSession = Depends(get_db)
-):
-    try:
-        db_user = await get_user_by_social_id(
-            db, 
-            create_user_request.social_id, 
-            create_user_request.social_type
-        )
-        
-        ip = None
-        new_user = False
-        if request.client.host:
-            ip = request.client.host
+):  
+    async with db.begin():
+        try:
+            db_user = await get_user_by_social_id(
+                db, 
+                create_user_request.social_id, 
+                create_user_request.social_type
+            )
             
-        # if create_user_request.social_type == SocialType.Apple:
-        #     await verify_apple_token(create_user_request.token, create_user_request.social_id)
-        # else:
-        #     await verify_google_token(create_user_request.token)
-        
-        if db_user:
-            session = await create_signin_session(db_user.id, ip, create_user_request)
-            if not db_user.alias:
-                new_user = True
-            db.add(session)
-        else:
-            db_user = await create_user(db, create_user_request)
-            # mem_status = await create_initial_member_status(db, db_user.id)
-            session = await create_signin_session(db_user.id, ip, create_user_request)
-            new_user = True
-            db.add(db_user)
-            # db.add(mem_status)
-            db.add(session)
+            ip = None
+            new_user = False
+            if request.client.host:
+                ip = request.client.host
+                
+            # if create_user_request.social_type == SocialType.Apple:
+            #     await verify_apple_token(create_user_request.token, create_user_request.social_id)
+            # else:
+            #     await verify_google_token(create_user_request.token)
             
-        await db.commit()
-        await db.refresh(db_user)
-        await db.refresh(session)
-            
-        access_token = await create_access_token(db_user.id, session, access_token_expire)
-        
-        memb_resp = None
-        
-        if not new_user:
-            db_user = await get_user_by_id(db, db_user.id)
-            if not db_user.image:
-                image = None
+            if db_user:
+                if not db_user.alias:
+                    new_user = True
+                    db_user.update_at = func.now()
             else:
-                image = db_user.image
-            lang_list = []
-            int_list = []
-            if db_user.language_choices:
+                db_user, db_user_hist = await create_user(db, create_user_request)
+                new_user = True
+                db.add(db_user_hist)
+
+            db.add(db_user)
+            session = await create_signin_session(db_user.id, ip, create_user_request)
+            db.add(session)
+                
+            access_token = await create_access_token(db_user.id, session.id, access_token_expire)
+            
+            memb_resp = None
+            
+            if not new_user:
+
+                if not db_user.image:
+                    image = None
+                else:
+                    image = db_user.image
+
                 lang_list = []
-                for i in db_user.language_choices:
-                    lang_list.append(LangIAResponse(
-                        id = i.id,
-                        name = i.name,
-                        create_date= i.create_date
-                    ))
-            if db_user.language_choices:
                 int_list = []
-                for i in db_user.interest_area_choices:
-                    int_list.append(LangIAResponse(
-                        id = i.id,
-                        name = i.name,
-                        create_date= i.create_date
-                    ))
-            memb_resp = MemberProfileAuthResponse(
-                alias = db_user.alias,
-                bio= db_user.bio,
-                google_id= db_user.google_id,
-                apple_id= db_user.apple_id,
-                gender= db_user.gender,
-                is_dating= db_user.is_dating,
-                image= image,
-                language_choices= lang_list,
-                interest_area_choices= int_list
+
+                lang_list, int_list = await get_mem_choices(db, db_user.id)
+
+                memb_resp = MemberProfileAuthResponse(
+                    alias = db_user.alias,
+                    bio= db_user.bio,
+                    google_id= db_user.google_id,
+                    apple_id= db_user.apple_id,
+                    apple_email = db_user.apple_email,
+                    google_email = db_user.google_email,
+                    join_at = db_user.join_at,
+                    gender= db_user.gender,
+                    is_dating= db_user.is_dating,
+                    image= image,
+                    language_choices= lang_list,
+                    interest_area_choices= int_list
+                )
+
+            return MemberSignupResponse(
+                token= access_token,
+                new_user= new_user,
+                profile= memb_resp
             )
 
-        return MemberSignupResponse(
-            token= access_token,
-            new_user= new_user,
-            profile= memb_resp
-        )
+        except Exception as exc:
 
-    except Exception as exc:
-        if hasattr(exc, "detail") and hasattr(exc, "status_code"):
-            msg = exc.detail
-            status_code = exc.status_code
-        else:
             status_code = 500
             msg = str(exc)
 
-        await db.rollback()
-        raise HTTPException(status_code=status_code, detail=msg) from exc
+            await db.rollback()
+            raise HTTPException(status_code=status_code, detail=msg) from exc
     
 
 @router.post(
@@ -230,21 +222,37 @@ async def user_logged_out(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db)
 ):
-    red = await Redis(db = REDIS_DB)
-    revoked_tokens = await red.get('revoked_tokens')
-    
-    if revoked_tokens:
-        revoked_tokens = revoked_tokens.decode('utf-8')
-        revoked_tokens += f' {Auth_token}'
-    else:
-        revoked_tokens = Auth_token
-    
-    
-    await red.set('revoked_tokens', revoked_tokens)
-    await red.close()
-    
 
+    async with db.begin():
+        try:
+            # red = await Redis(db = REDIS_DB)
+            # revoked_tokens = await red.get('revoked_tokens')
+            
+            # if revoked_tokens:
+            #     revoked_tokens = revoked_tokens.decode('utf-8')
+            #     revoked_tokens += f' {Auth_token}'
+            # else:
+            #     revoked_tokens = Auth_token
+            
+            
+            # await red.set('revoked_tokens', revoked_tokens)
+            # await red.close()
+            user: MemberProfileCurr = request.user
 
-    return {
-        "message": "User logged out"
-    }
+            del_query, ses_prev = await delete_session(db, user.__getattribute__('ses'))
+            await  db.execute(del_query)
+            db.add(ses_prev)
+
+            return {
+                "message": "User logged out"
+            }
+        
+        except Exception as exc:
+
+            status_code = 500
+
+            await db.rollback()
+            response.status_code = status_code
+            return {
+                "message": str(exc)
+            }

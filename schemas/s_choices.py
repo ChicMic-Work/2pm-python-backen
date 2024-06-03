@@ -13,8 +13,8 @@ class MemberChoicesReq(BaseModel):
 
 class LangIAResponse(BaseModel):
     id: int
-    name: str
-    create_date: datetime.date
+    name: str 
+    add_date: datetime.date
     
 class LangIACreate(BaseModel):
     name: str
