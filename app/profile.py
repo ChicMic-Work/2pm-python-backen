@@ -72,6 +72,7 @@ router = APIRouter(
 
 @router.post(
     "/create/",
+    # response_model=MemberProfileResponse,
     )
 async def create_profile(
     request: Request,
@@ -177,7 +178,8 @@ async def create_profile(
         raise HTTPException(status_code= 500, detail= str(exc)) from exc
     
 @router.get(
-    "/user"
+    "/user",
+    # response_model = MemberProfileResponse
     )
 async def get_user_profile(
     request: Request,
@@ -338,6 +340,7 @@ async def delete_profile_image(
         
 @router.post(
     "/choices/",
+    # response_model= List[LangIAResponse]
 )
 async def member_languages(
     request: Request,
