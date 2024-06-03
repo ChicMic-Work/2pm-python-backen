@@ -225,18 +225,18 @@ async def user_logged_out(
 
     async with db.begin():
         try:
-            # red = await Redis(db = REDIS_DB)
-            # revoked_tokens = await red.get('revoked_tokens')
+            red = await Redis(db = REDIS_DB)
+            revoked_tokens = await red.get('revoked_tokens')
             
-            # if revoked_tokens:
-            #     revoked_tokens = revoked_tokens.decode('utf-8')
-            #     revoked_tokens += f' {Auth_token}'
-            # else:
-            #     revoked_tokens = Auth_token
+            if revoked_tokens:
+                revoked_tokens = revoked_tokens.decode('utf-8')
+                revoked_tokens += f' {Auth_token}'
+            else:
+                revoked_tokens = Auth_token
             
             
-            # await red.set('revoked_tokens', revoked_tokens)
-            # await red.close()
+            await red.set('revoked_tokens', revoked_tokens)
+            await red.close()
             user: MemberProfileCurr = request.user
 
             del_query, ses_prev = await delete_session(db, user.__getattribute__('ses'))

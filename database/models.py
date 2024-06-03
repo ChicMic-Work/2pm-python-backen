@@ -37,23 +37,25 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_test_sch"
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_test_sch"
+# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_test_sch"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
 # engine = create_engine(SQLALCHEMY_DATABASE_URL,)
+
+
 SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
 # SessionLocal = sessionmaker(bind= engine, autocommit=False, autoflush=False)
 
 Base = declarative_base()
 
-# default_uuid7 = text("uuid_generate_v7()")
-default_uuid7 = text("uuid_generate_v4()")
+default_uuid7 = text("uuid_generate_v7()")
+# default_uuid7 = text("uuid_generate_v4()")
 
 class MemberProfileCurr(Base):
     
