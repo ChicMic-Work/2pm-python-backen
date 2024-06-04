@@ -366,7 +366,8 @@ async def member_languages(
             async with db.begin_nested():
                 if return_lang:
                     lang_ia = await get_mem_languages(db, user.id) 
-                lang_ia = await get_mem_interest_areas(db, user.id)
+                else:
+                    lang_ia = await get_mem_interest_areas(db, user.id)
 
                 lang_list = []
                 if lang_ia:
