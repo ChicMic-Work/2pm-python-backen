@@ -201,6 +201,8 @@ class MemberProfileHist(Base):
     join_at         = Column(MemberProfileKeys.join_at, DateTime(True), nullable= False)
     
     alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255), nullable= True)
+    alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255), nullable= True)
+    
     bio             = Column(MemberProfileKeys.bio, String(TableCharLimit._255), nullable= True)
     image           = Column(MemberProfileKeys.image, String(TableCharLimit._255), nullable= True)
     gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255), nullable= True)
