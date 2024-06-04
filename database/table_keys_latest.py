@@ -1,5 +1,4 @@
 
-
 class BaseKey():
     
     ID          = "pk_id"
@@ -143,8 +142,8 @@ class MmbBillCycleKeys(BaseKey):
     product_period  = "prod_period"
     prod_start_at   = "prod_start_at"
     
-    next_cycle_at   = "Next_Bill_Cycle_Charge_At"
-    next_cycle_id   = "Next_Bill_Cycle_ID"
+    next_cycle_at   = "next_bill_cycle_charge_at"
+    next_cycle_id   = "next_bill_cycle_id"
     
     bill_cycle_id   = "bill_cycle_id"
     bill_cycle_start_at     = "bill_cycle_start_at"
@@ -189,7 +188,7 @@ class MmbWaiverKeys(BaseKey):
     
 class PromoOfferKeys(BaseKey):
     
-    tablename   = "mbr_promo_offer_hist"
+    tablename   = "mbr_promo_offer"
     
     offer_id    = "offer_id"
     member_id   = "mbr_id"
@@ -218,7 +217,7 @@ class PromoOfferKeys(BaseKey):
 
 class MmbMsgReportKeys(BaseKey):
     
-    tablename   = "mbr_msg_report_hist"
+    tablename   = "mbr_msg_report"
     
     reported_member = "reported_mbr_id"
     reporting_member= "reporting_mbr_id"
@@ -369,6 +368,9 @@ class PostKeys(BaseKey):
     interest_id = "topic_area_id"
     lang_id     = "lang_id"
 
+    title       = "post_title"
+    body        = "post_detail"
+    
     tag1        = "tag1"
     tag2        = "tag2"
     tag3        = "tag3"
@@ -376,11 +378,6 @@ class PostKeys(BaseKey):
     tag1_id     = "tag1_id"
     tag2_id     = "tag2_id"
     tag3_id     = "tag3_id"
-    
-    title       = "post_title"
-    body        = "post_detail"
-    
-    
     
     posted_at   = "post_at"
 
@@ -535,7 +532,7 @@ class PostFolKeys(BaseKey):
 class TagListKeys(BaseKey):
     
     tablename   = "discuss_forum_tag"
-    
+    ID          = "tag_id"
     name        = "df_tag_std"
     
     add_date    = "add_dt"
@@ -701,10 +698,10 @@ class PollQuesKeys(BaseKey):
     poll_item_id    = "poll_item_id"
     
     post_id         = "poll_post_id"
-    ques_seq_id     = "qstn_seq_id"
+    qstn_seq_num     = "qstn_seq_num"
     ques_text       = "qstn_text"
     
-    ans_seq_id      = "answer_choice_seq_id"
+    ans_seq_letter      = "answ_choice_letter"
     ans_text        = "answer_choice_text"
 
     _post           = "post"
@@ -725,7 +722,7 @@ class PollMemResultKeys(BaseKey):
     post_id     = "poll_post_id"
     member_id   = "mbr_id"
     
-    taken_at    = "taken_at"
+    take_at    = "take_at"
     reveal_at   = "reveal_at"
     
     py_table_name   = "PollMemResult"
@@ -1051,7 +1048,7 @@ class MmbReportKeys(BaseKey):
     report_content_type    = "report_content_type"
     report_content_id      = "report_content_id"
     
-    content         = "content"
+    content         = "report_content"
     
     reason_code     = "report_reason_code"
     reason_other_text = "report_others_reason_text"
