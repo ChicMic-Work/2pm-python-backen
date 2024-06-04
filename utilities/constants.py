@@ -86,10 +86,10 @@ class PromoType:
     
 
 class PostType:
-    B = "Blog"
-    Q = "Question"
-    A = "Answer" 
-    P = "Poll"
+    Blog = "B"
+    Question = "Q"
+    Answer = "A" 
+    Poll = "P"
     
     types_list = ['B', 'Q', 'A', 'P']
     

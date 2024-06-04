@@ -137,13 +137,13 @@ class MmbBillCycleKeys(BaseKey):
     member_id       = "mbr_id"
     
     product_id      = "prod_id"
-    product_fee     = "prod_fee_amt"
+    product_fee     = "prod_price"
     product_currency= "prod_currency"
     product_period  = "prod_period"
     prod_start_at   = "prod_start_at"
     
-    next_cycle_at   = "Next_Bill_Cycle_Charge_At"
-    next_cycle_id   = "Next_Bill_Cycle_ID"
+    next_cycle_at   = "next_bill_cycle_charge_at"
+    next_cycle_id   = "next_bill_cycle_id"
     
     bill_cycle_id   = "bill_cycle_id"
     bill_cycle_start_at     = "bill_cycle_start_at"
@@ -152,12 +152,12 @@ class MmbBillCycleKeys(BaseKey):
     bill_cycle_charge_currency = "bill_cycle_charge_currency"
     
     bill_cycle_blog_count   = "bill_cycle_blog_cnt"
-    bill_cycle_ques_count   = "bill_cycle_question_cnt"
-    bill_cycle_ans_count    = "bill_cycle_answer_cnt"
+    bill_cycle_ques_count   = "bill_cycle_qstn_cnt"
+    bill_cycle_ans_count    = "bill_cycle_answ_cnt"
     bill_cycle_poll_count   = "bill_cycle_poll_cnt"
-    bill_cycle_poll_taken_count = "bill_cycle_poll_taken_cnt"
+    bill_cycle_poll_taken_count = "bill_cycle_poll_take_cnt"
     
-    bill_cycle_actvy_count  = "bill_cycle_actvy_cnt"
+    bill_cycle_actvy_count  = "bill_cycle_act_cnt"
     
     default_count   = 0
     
@@ -168,7 +168,7 @@ class MmbBillCycleKeys(BaseKey):
 
 class MmbWaiverKeys(BaseKey):
     
-    tablename   = "mbr_bill_cycle_waiver_calc_hist"
+    tablename   = "mbr_waiver_calc"
     
     member_id       = "mbr_id"
     bill_cycle_id   = "bill_cycle_id"
@@ -177,9 +177,9 @@ class MmbWaiverKeys(BaseKey):
     
     blog_count      = "prev_bill_cycle_qual_blog_cnt"
     quest_count     = "prev_bill_cycle_qual_qstn_cnt"
-    ans_count       = "prev_bill_cycle_qual_answer_cnt"
+    ans_count       = "prev_bill_cycle_qual_answ_cnt"
     poll_count      = "prev_bill_cycle_qual_poll_cnt"
-    poll_taken_count= "prev_bill_cycle_qual_poll_taken_cnt"
+    poll_taken_count= "prev_bill_cycle_qual_poll_take_cnt"
     activity_count  = "prev_bill_cycle_qual_act_cnt"
     is_eligible     = "is_waiver_eligible"
     
@@ -188,7 +188,7 @@ class MmbWaiverKeys(BaseKey):
     
 class PromoOfferKeys(BaseKey):
     
-    tablename   = "mbr_promo_offer_hist"
+    tablename   = "mbr_promo_offer"
     
     offer_id    = "offer_id"
     member_id   = "mbr_id"
@@ -217,7 +217,7 @@ class PromoOfferKeys(BaseKey):
 
 class MmbMsgReportKeys(BaseKey):
     
-    tablename   = "mbr_msg_report_hist"
+    tablename   = "mbr_msg_report"
     
     reported_member = "reported_mbr_id"
     reporting_member= "reporting_mbr_id"
@@ -239,7 +239,7 @@ class MbrStatusKeys(BaseKey):
     member_id   = "mbr_id"
     
     product_id  = "mbrshp_prod_id"
-    product_fee = "mbrshp_prod_fee_amt"
+    product_fee = "mbrshp_prod_price"
     product_period = "mbrshp_prod_period"
     
     product_currency    = "mbrshp_prod_currency"
@@ -368,18 +368,16 @@ class PostKeys(BaseKey):
     interest_id = "topic_area_id"
     lang_id     = "lang_id"
 
+    title       = "post_title"
+    body        = "post_detail"
+    
     tag1        = "tag1"
     tag2        = "tag2"
     tag3        = "tag3"
     
-    tag1_std    = "tag1_std"
-    tag2_std    = "tag2_std"
-    tag3_std    = "tag3_std"
-    
-    title       = "post_title"
-    body        = "post_detail"
-    
-    
+    tag1_id     = "tag1_id"
+    tag2_id     = "tag2_id"
+    tag3_id     = "tag3_id"
     
     posted_at   = "post_at"
 
@@ -534,7 +532,7 @@ class PostFolKeys(BaseKey):
 class TagListKeys(BaseKey):
     
     tablename   = "discuss_forum_tag"
-    
+    ID          = "tag_id"
     name        = "df_tag_std"
     
     add_date    = "add_dt"
@@ -700,10 +698,10 @@ class PollQuesKeys(BaseKey):
     poll_item_id    = "poll_item_id"
     
     post_id         = "poll_post_id"
-    ques_seq_id     = "qstn_seq_id"
+    qstn_seq_num     = "qstn_seq_num"
     ques_text       = "qstn_text"
     
-    ans_seq_id      = "answer_choice_seq_id"
+    ans_seq_letter      = "answ_choice_letter"
     ans_text        = "answer_choice_text"
 
     _post           = "post"
@@ -717,14 +715,19 @@ class PollQuesKeys(BaseKey):
 class PollMemResultKeys(BaseKey):
     
     tablename   = "mbr_poll_result"
+    tablename_take = "mbr_poll_take"
+    tablename_reveal = "mbr_poll_reveal"
     
     poll_item_id    = "poll_item_id"
     post_id     = "poll_post_id"
     member_id   = "mbr_id"
     
-    taken_at    = "taken_at"
+    take_at    = "take_at"
+    reveal_at   = "reveal_at"
     
     py_table_name   = "PollMemResult"
+    py_table_name_take = "PollMemTake"
+    py_table_name_reveal = "PollMemReveal"
     
     _post           = "post"
     _memb           = "member_profile"
@@ -773,7 +776,7 @@ class QuesInvKeys(BaseKey):
     
     invite_at       = "invite_at"
     
-    py_table_name   = "PollInvite"
+    py_table_name   = "QuesInvite"
     
     _post           = "post"
     _post_ans           = "post_ans"
@@ -936,8 +939,8 @@ class ClubAdminKeys(BaseKey):
     tablename   = "clb_admin"
     
     admin_id    = "admin_id"
-    first_name  = "fst_name"
-    last_name   = "lst_name"
+    first_name  = "fst_nm"
+    last_name   = "lst_nm"
     
     start_dt    = "start_dt"
     
@@ -1011,6 +1014,8 @@ class MmbMuteKeys(BaseKey):
     
     member_id        = "mbr_id"
     muted_mem_id     = "muted_mbr_id"
+    
+    mute_at          = "mute_at"
 
     py_table_name      = "MmbMuteCurr"
     py_table_name_prev = "MmbMuteHist"
@@ -1035,22 +1040,22 @@ class MmbSpamKeys(BaseKey):
        
 class MmbReportKeys(BaseKey):
     
-    table_name  = "mbr_report_hist"
+    table_name  = "mbr_report"
     
     reporting_id    = "reporting_mbr_id"
     reported_id     = "reported_mbr_id"
     
-    content_type    = "content_type"
-    content_id      = "content_id"
+    report_content_type    = "report_content_type"
+    report_content_id      = "report_content_id"
     
-    content         = "content"
+    content         = "report_content"
     
     reason_code     = "report_reason_code"
     reason_other_text = "report_others_reason_text"
     
     report_at       = "report_at"
     
-    py_table_name   = "MmbReportHist"
+    py_table_name   = "MmbReport"
     
     _reported_member    = "reported_member"
     _reported_by_member = "reported_by_member"
@@ -1084,3 +1089,4 @@ class ReprResKeys(BaseKey):
     
     type   = "report_reason_type"
     desc   = "report_reason_type_desc"
+
