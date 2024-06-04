@@ -38,12 +38,12 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
+# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1_test"
 
 #local local
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_test_sch"
-# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_test_sch"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
@@ -55,8 +55,8 @@ SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=Fals
 
 Base = declarative_base()
 
-default_uuid7 = text("uuid_generate_v7()")
-# default_uuid7 = text("uuid_generate_v4()")
+# default_uuid7 = text("uuid_generate_v7()")
+default_uuid7 = text("uuid_generate_v4()")
 
 class MemberProfileCurr(Base):
     
@@ -159,6 +159,7 @@ class MmbBillCyclePrev(Base):
 Index('ix_member_id_add_at_desc', MmbBillCyclePrev.member_id, MmbBillCyclePrev.add_at.desc(), unique=True)
 Index('ix_member_id_bill_cycle_id', MmbBillCyclePrev.member_id, MmbBillCyclePrev.bill_cycle_id, unique=True)
 Index('ix_member_id_next_cycle_id', MmbBillCyclePrev.member_id, MmbBillCyclePrev.next_cycle_id, unique=True)
+Index('ix_next_cycle_id', MmbBillCyclePrev.next_cycle_id, unique=True)
     
 
 
@@ -565,8 +566,8 @@ class DailyAns(Base):
     answer        = Column(DailyAnsKeys.answer, Text)
     post_at       = Column(DailyAnsKeys.post_at, DateTime(True), default= func.now() , index= True)
     
-    block_by      = Column(DailyAnsKeys.block_by, String(TableCharLimit._255))
-    block_note    = Column(DailyAnsKeys.block_note, Text)
+    block_by      = Column(DailyAnsKeys.block_by, String(TableCharLimit._255), nullable= True)
+    block_note    = Column(DailyAnsKeys.block_note, Text, nullable= True)
     
     update_at     = Column(DailyAnsKeys.update_at, DateTime(True), default= func.now() )
 
@@ -653,6 +654,8 @@ class PollQues(Base):
     
     ans_seq_letter      = Column(PollQuesKeys.ans_seq_letter, String(TableCharLimit._255))
     ans_text        = Column(PollQuesKeys.ans_text, String(TableCharLimit._255))
+
+    allow_multiple   = Column(PollQuesKeys.allow_multiple, Boolean, default= 0)
     
     create_at       = Column(PollQuesKeys.create_at, DateTime(True), default= func.now() )
     update_at       = Column(PollQuesKeys.update_at, DateTime(True), default= func.now() )

@@ -36,9 +36,22 @@ access_token_expire = timedelta(days=30)
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
-    '/posts/create/', '/profile/choices/', '/auth/logout/'
+    '/profile/choices/', '/auth/logout/',
+    '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
+    '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
 ]
 
+
+class PollPostLimit:
+    
+    qstn_seq_num_min = 1
+    qstn_seq_num_max = 5
+
+    ans_seq_letter_len = 1
+    ans_seq_letter_list = ['A', 'B', 'C', 'D', 'E']
+
+    max_qstns    = 5
+    max_choices  = 5
 
 class AddType:
 
@@ -61,6 +74,9 @@ class TableCharLimit:
     comment     = 300
     tag         = 25
     feedback    = 1000
+
+    poll_qstn   = 70
+    poll_choice = 20
     
     _255        = 255
     _330        = 330

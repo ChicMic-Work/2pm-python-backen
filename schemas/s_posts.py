@@ -2,19 +2,19 @@ from pydantic import BaseModel, field_validator, Field
 from uuid import UUID
 
 from utilities.constants import (
-    PostType, TableCharLimit
+    PollPostLimit, PostType, TableCharLimit
 )
 
 from typing import List, Optional, Union
 
     
 class PostBlogRequest(BaseModel):
-    type: str = Field(..., default= PostType.Blog, description="Type of the blog post")
+    type: str = Field(default= PostType.Blog, description="Blog post")
     
     title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the blog post")
     body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the blog post")
     
-    draft_id: Optional[UUID]
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts blog")
     is_anonymous: bool
     
     tags: Optional[List[Union[str, int]]] = []
@@ -39,14 +39,12 @@ class PostBlogRequest(BaseModel):
         return v
 
 class PostBlogDraftRequest(BaseModel):
-    type: str = Field(..., default= PostType.Blog, description="Type of the blog post")
+    type: str = Field(default= PostType.Blog, description= "Blog Post")
     
-    title: str | None = Field(max_length=TableCharLimit.post_title, description="Title of the blog post")
-    body: str | None = Field(max_length=TableCharLimit.post_detail, description="Body of the blog post")
+    title: str = Field(None, max_length=TableCharLimit.post_title, description="Title of the blog post")
+    body: str  = Field(None, max_length=TableCharLimit.post_detail, description="Body of the blog post")
     
-    draft_id: Optional[UUID]
-    
-    is_anonymous: bool
+    draft_id: Optional[UUID] = Field(None, description="Changes existing Drafted Blog Post")
     
     tags: Optional[List[Union[str, int]]] = []
     interest_area_id: int
@@ -71,14 +69,15 @@ class PostBlogDraftRequest(BaseModel):
                 raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
         return v
 
+
 class PostQuesRequest(BaseModel):
-    type: str = Field(..., default= PostType.Question, description="Type of the question post")
+    type: str = Field( default= PostType.Question, description="Question Post")
     
     title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the question post")
     body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the question post")
     
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts question")
     is_anonymous: bool
-    is_drafted: bool
     
     tags: Optional[List[Union[str, int]]] = []
     interest_area_id: int
@@ -88,6 +87,7 @@ class PostQuesRequest(BaseModel):
     def validate_type(cls, v):
         if v != PostType.Question:
             raise ValueError('type must be Q')
+        return v
 
     @field_validator('tags')
     def validate_tags(cls, v):
@@ -100,6 +100,150 @@ class PostQuesRequest(BaseModel):
                 raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
         return v
 
+class PostQuesDraftRequest(BaseModel):
+    type: str = Field( default= PostType.Question, description="Question Post")
+    
+    title: str = Field(None, max_length=TableCharLimit.post_title, description="Title of the question post")
+    body: str  = Field(None, max_length=TableCharLimit.post_detail, description="Body of the question post")
+    
+    draft_id: Optional[UUID] = Field(None, description="Changes existing Drafted Question Post")
+    
+    tags: Optional[List[Union[str, int]]] = []
+    interest_area_id: int
+    language_id: int
+
+    @field_validator('type')
+    def validate_type(cls, v):
+        if v != PostType.Blog:
+            raise ValueError('type must be B')
+        return v
+    
+    @field_validator('tags')
+    def validate_tags(cls, v):
+        if len(v) > 3:
+            raise ValueError('There can be up to 3 tags')
+        for tag in v:
+            # if isinstance(tag, str) and len(tag) > TableCharLimit.tag:
+            #     raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
+            if len(tag) > TableCharLimit.tag:
+                raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
+        return v
+
+
+class PostAnsRequest(BaseModel):
+    type: str = Field(default= PostType.Answer, description="Answer Post")
+    
+    title: str = Field("Answer", max_length=TableCharLimit.post_title, description="Title of the answer post")
+    body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the answer post")
+    
+    post_ques_id: UUID = Field(..., description="Question Post ID")
+
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
+    is_anonymous: bool
+    is_for_daily: bool = Field(False, description="is the answer for the daily question")
+    
+    @field_validator('type')
+    def validate_type(cls, v):
+        if v != PostType.Answer:
+            raise ValueError('type must be A')
+        return v
+
+class PostAnsDraftRequest(BaseModel):
+
+    type: str = Field(default= PostType.Answer, description="Answer Post")
+
+    title: str = Field("Answer", max_length=TableCharLimit.post_title, description="Title of the answer post")
+    body: str  = Field(..., max_length=TableCharLimit.post_detail, description="Body of the answer post")
+
+    post_ques_id: UUID = Field(..., description="Question Post ID")
+    
+    draft_id: Optional[UUID] = Field(None, description="Changes existing Drafted Answer Post")
+    is_for_daily: bool = Field(False, description="is the answer for the daily question")
+
+    @field_validator('type')
+    def validate_type(cls, v):
+        if v != PostType.Answer:
+            raise ValueError('type must be A')
+        return v
+
+
+
+
+class PollQuesChoicesRequest(BaseModel):
+
+    ans_seq_letter: str = Field(..., max_length=PollPostLimit.ans_seq_letter_len, description="Choice Sequence Letter")
+    ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
+
+    @field_validator('ans_seq_letter')
+    def validate_ans_seq_letter(cls, v):
+        if v not in PollPostLimit.ans_seq_letter_list:
+            raise ValueError(f'Choice Sequence Letter must be one of {PollPostLimit.ans_seq_letter_list}')
+        return v
+
+class PollQuestionRequest(BaseModel):
+    
+    qstn_seq_num: int = Field(..., ge=PollPostLimit.qstn_seq_num_min, le=PollPostLimit.qstn_seq_num_max, description="Question Sequence Number")
+    ques_text: str    = Field(..., max_length=TableCharLimit.poll_qstn, description="Question Text")
+
+    allow_multiple: bool
+
+    choices: List[PollQuesChoicesRequest]
+
+    @field_validator("choices")
+    def validate_choices_length(cls, value):
+        if len(value) > PollPostLimit.max_choices:
+            raise ValueError("Maximum of 5 choices allowed per question")
+        return value
+
+class PostPollRequest(BaseModel):
+    type: str = Field( default= PostType.Poll, description="Poll Post")
+    
+    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the poll post")
+    body: str = Field("", max_length=TableCharLimit.post_detail, description="Body of the poll post")
+
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
+    is_anonymous: bool
+
+    tags: Optional[List[Union[str, int]]] = []
+    interest_area_id: int
+    language_id: int
+
+    poll: List[PollQuestionRequest]
+
+    @field_validator('type')
+    def validate_type(cls, v):
+        if v != PostType.Poll:
+            raise ValueError('type must be P')
+        return v
+    
+    @field_validator('tags')
+    def validate_tags(cls, v):
+        if len(v) > 3:
+            raise ValueError('There can be up to 3 tags')
+        for tag in v:
+            # if isinstance(tag, str) and len(tag) > TableCharLimit.tag:
+            #     raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
+            if len(tag) > TableCharLimit.tag:
+                raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
+        return v
+
+    @field_validator("poll")
+    def validate_poll_length(cls, value):
+        if len(value) > PollPostLimit.max_qstns:
+            raise ValueError("Maximum of 5 questions allowed per poll")
+        return value
+
+
+
+
+
+
+
+
+
+
+
+"""
 class PostCreateRequest(BaseModel):
     
     type: str
@@ -120,6 +264,7 @@ class PostCreateRequest(BaseModel):
     def valid_type(self, type: str):
         if self.type not in PostType.types_list:
             raise ValueError(f"invalid post type: {type}")
+        return type
     
     @field_validator('ass_post_id')
     def valid_ass_post_id(self):
@@ -140,3 +285,5 @@ class PostCreateRequest(BaseModel):
     def valid_interest_area_id(self):
         if self.type == PostType.B and (self.interest_area_id == None or self.language_id == None):
             raise ValueError(f"Provide interest_area_id and language_id for blog post")
+
+"""

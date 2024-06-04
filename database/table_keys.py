@@ -704,6 +704,8 @@ class PollQuesKeys(BaseKey):
     ans_seq_letter      = "answ_choice_letter"
     ans_text        = "answer_choice_text"
 
+    allow_multiple  = "allow_multiple"
+    
     _post           = "post"
     _poll_taken     = "poll_taken"
     _poll_result    = "poll_result"

@@ -26,7 +26,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 from typing import Annotated
 
-from app import auth, choices, profile
+from app import auth, choices, profile, posts
 from utilities.constants import (
     EMAIL_HOST,
     EMAIL_HOST_USER,
@@ -41,6 +41,7 @@ app = FastAPI()
 app.include_router(auth.router)
 app.include_router(choices.router)
 app.include_router(profile.router)
+app.include_router(posts.router)
 
 app.add_middleware(AuthenticationMiddleware, backend=BearerTokenAuthBackend())
 
