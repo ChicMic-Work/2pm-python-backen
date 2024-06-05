@@ -65,7 +65,8 @@ async def create_blog_post(
             db.add(post_curr)
             db.add(post_hist)
 
-            await db.execute(del_query)
+            if post_request.draft_id:
+                await db.execute(del_query)
             
             msg = "Post created"
 
@@ -131,7 +132,8 @@ async def create_question_post(
             db.add(post_curr)
             db.add(post_hist)
 
-            await db.execute(del_query)
+            if post_request.draft_id:
+                await db.execute(del_query)
                 
             msg = "Post created"
                 
@@ -206,7 +208,8 @@ async def create_answer_post(
             if post_hist:
                 db.add(post_hist)
 
-            await db.execute(del_query)
+            if post_request.draft_id:
+                await db.execute(del_query)
                 
             msg = "Post created"
                 
@@ -278,8 +281,9 @@ async def create_poll_post(
             db.add(post_hist)
             db.add_all(ques_list)
 
-            for del_query in del_queries:
-                await db.execute(del_query)
+            if post_request.draft_id:
+                for del_query in del_queries:
+                    await db.execute(del_query)
             
             msg = "Post created"
             
@@ -311,7 +315,8 @@ async def create_draft_poll_post(
         del_query, draft, ques_list = await create_draft_poll_post_crud(db, user.id, draft_request.draft_id, draft_request)
 
         db.add(draft)
-        await db.execute(del_query)
+        if draft_request.draft_id:
+            await db.execute(del_query)
         db.add_all(ques_list)
         db.commit()
 

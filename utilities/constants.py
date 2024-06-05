@@ -75,8 +75,8 @@ class TableCharLimit:
     tag         = 25
     feedback    = 1000
 
-    poll_qstn   = 70
-    poll_choice = 20
+    poll_qstn   = 150
+    poll_choice = 70
     
     _255        = 255
     _330        = 330

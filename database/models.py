@@ -38,12 +38,12 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1_test"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
+# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
@@ -55,8 +55,8 @@ SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=Fals
 
 Base = declarative_base()
 
-# default_uuid7 = text("uuid_generate_v7()")
-default_uuid7 = text("uuid_generate_v4()")
+default_uuid7 = text("uuid_generate_v7()")
+# default_uuid7 = text("uuid_generate_v4()")
 
 class MemberProfileCurr(Base):
     
@@ -71,7 +71,7 @@ class MemberProfileCurr(Base):
     join_at         = Column(MemberProfileKeys.join_at, DateTime(timezone= True), default= func.now(), nullable= False)
     
     alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255), unique=True, nullable= True)
-    alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255), unique=True, nullable= True)
+    alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255), nullable= True)
     
     bio             = Column(MemberProfileKeys.bio, String(TableCharLimit._255), nullable= True)
     image           = Column(MemberProfileKeys.image, String(TableCharLimit._255), nullable= True)
@@ -83,7 +83,6 @@ class MemberProfileCurr(Base):
 Index('ix_apple_id_curr_unique', MemberProfileCurr.apple_id, unique=True, postgresql_where=MemberProfileCurr.apple_id.isnot(None))
 Index('ix_alias_curr_unique', MemberProfileCurr.alias, unique=True, postgresql_where=MemberProfileCurr.alias.isnot(None))
 Index('ix_google_id_curr_unique', MemberProfileCurr.google_id, unique=True, postgresql_where=MemberProfileCurr.google_id.isnot(None))
-Index('ix_alias_std_curr_unique', MemberProfileCurr.alias_std, unique=True, postgresql_where=MemberProfileCurr.alias_std.isnot(None))
 
 
 
@@ -139,9 +138,9 @@ class MmbBillCyclePrev(Base):
     prod_start_at   = Column(MmbBillCycleKeys.prod_start_at, DateTime(True))
     
     next_cycle_at   = Column(MmbBillCycleKeys.next_cycle_at, DateTime(True))
-    next_cycle_id   = Column(MmbBillCycleKeys.next_cycle_id, String(TableCharLimit._255))
+    next_cycle_id   = Column(MmbBillCycleKeys.next_cycle_id, String(TableCharLimit._255), unique= True)
     
-    bill_cycle_id   = Column(MmbBillCycleKeys.bill_cycle_id, String(TableCharLimit._255))
+    bill_cycle_id   = Column(MmbBillCycleKeys.bill_cycle_id, String(TableCharLimit._255), unique= True)
     bill_cycle_start_at     = Column(MmbBillCycleKeys.bill_cycle_start_at, DateTime(True))
     bill_cycle_end_at       = Column(MmbBillCycleKeys.bill_cycle_end_at, DateTime(True))
     bill_cycle_charge_amount= Column(MmbBillCycleKeys.bill_cycle_charge_amount, Numeric(10, 2))
@@ -157,8 +156,6 @@ class MmbBillCyclePrev(Base):
     add_at                  = Column(MmbBillCycleKeys.add_at, DateTime(True),default= func.now(),  nullable= False)
     
 Index('ix_member_id_add_at_desc', MmbBillCyclePrev.member_id, MmbBillCyclePrev.add_at.desc(), unique=True)
-Index('ix_member_id_bill_cycle_id', MmbBillCyclePrev.member_id, MmbBillCyclePrev.bill_cycle_id, unique=True)
-Index('ix_member_id_next_cycle_id', MmbBillCyclePrev.member_id, MmbBillCyclePrev.next_cycle_id, unique=True)
 Index('ix_next_cycle_id', MmbBillCyclePrev.next_cycle_id, unique=True)
     
 
@@ -170,7 +167,7 @@ class MmbWaiver(Base):
     __table_args__  = {'schema': MmbWaiverKeys.schema_mbr}
     
     bill_cycle_id   = Column(MmbWaiverKeys.bill_cycle_id, String(TableCharLimit._255), primary_key= True)
-    member_id       = Column(MmbWaiverKeys.member_id, UUID(as_uuid=True), nullable= False, index= True)
+    member_id       = Column(MmbWaiverKeys.member_id, UUID(as_uuid=True), nullable= False)
     
     calculated_at   = Column(MmbWaiverKeys.calculated_at, DateTime(True), default= func.now())
     
@@ -257,8 +254,12 @@ class MbrStatusHist(Base):
     add_at          = Column(MbrStatusKeys.add_at, DateTime(True), default= func.now(), nullable= True)
     add_type        = Column(MbrStatusKeys.add_type, String(TableCharLimit._255))
     
-Index('ix_status_hist_member_id_add_at_desc', MbrStatusHist.member_id, MbrStatusHist.add_at.desc())
-
+Index('ix_status_hist_member_id_add_at_desc', MbrStatusHist.member_id, MbrStatusHist.add_at.desc(), unique=True)
+mmb_status_hist_add_type_check_sql = """
+ALTER TABLE mbr.mbr_status_hist
+ADD CONSTRAINT check_add_type_mbr_status_hist
+CHECK (add_type IN ('I', 'U'));
+"""
 
 class Languages(Base):
     
@@ -410,7 +411,7 @@ class MmbMuteCurr(Base):
     
     mute_at          = Column(MmbMuteKeys.mute_at, DateTime(True), default= func.now(), nullable= False)
 
-Index('ix_member_id_muted_mbr_id', MmbMuteCurr.member_id, MmbMuteCurr.muted_mem_id)
+Index('ix_member_id_muted_mbr_id', MmbMuteCurr.member_id, MmbMuteCurr.muted_mem_id, unique= True)
 Index('ix_member_id_add_at', MmbMuteCurr.member_id, MmbMuteCurr.mute_at)
     
 class MmbMuteHist(Base):
@@ -497,7 +498,7 @@ class ReportReason(Base):
     
     id      = Column(ReprResKeys.ID, SmallInteger, Identity(always=True), primary_key= True)
     
-    type    = Column(ReprResKeys.type, SmallInteger, nullable= False)
+    type    = Column(ReprResKeys.type, SmallInteger, nullable= False, unique= True)
     desc    = Column(ReprResKeys.desc, String(TableCharLimit._255), nullable= False)
     
 
@@ -660,7 +661,7 @@ class PollQues(Base):
     create_at       = Column(PollQuesKeys.create_at, DateTime(True), default= func.now() )
     update_at       = Column(PollQuesKeys.update_at, DateTime(True), default= func.now() )
 
-Index('ix_post_id_qstn_id_ans_id', PollQues.post_id, PollQues.qstn_seq_num, PollQues.ans_seq_letter)
+Index('ix_post_id_qstn_id_ans_id', PollQues.post_id, PollQues.qstn_seq_num, PollQues.ans_seq_letter, unique=True)
 
 poll_ques_seq_check_constraint_sql = """
 ALTER TABLE pst.poll_detail
@@ -702,12 +703,11 @@ class PollMemTake(Base):
     # poll_item_id    = Column(PollMemResultKeys.poll_item_id, UUID(as_uuid=True), nullable=False)
     post_id         = Column(PollMemResultKeys.post_id, UUID(as_uuid=True), nullable= False, index= True)
     
-    member_id       = Column(PollMemResultKeys.member_id, UUID(as_uuid=True), nullable= False)
+    member_id       = Column(PollMemResultKeys.member_id, UUID(as_uuid=True), nullable= False, index=True)
     
-    take_at         = Column(PollMemResultKeys.take_at, DateTime(True), default= func.now() )
+    take_at         = Column(PollMemResultKeys.take_at, DateTime(True), default= func.now(), index=True )
 
 Index('ix_unique_poll_mem_take', PollMemTake.post_id, PollMemTake.member_id, unique=True)
-Index('ix_poll_mem_poll_take_at_sec', PollMemTake.take_at.desc(), PollMemTake.member_id)
 
 class PollMemReveal(Base):
     
@@ -759,7 +759,7 @@ class QuesInvite(Base):
     invite_at       = Column(QuesInvKeys.invite_at, DateTime(True), default= func.now())
     
     inviting_mbr_id = Column(QuesInvKeys.inviting_mbr_id, UUID(as_uuid=True), nullable=False)
-    invited_mbr_id  = Column(QuesInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False, index= True)
+    invited_mbr_id  = Column(QuesInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False)
 
 Index('ix_ques_invite_ans', QuesInvite.ans_post_id, postgresql_where=QuesInvite.ans_post_id.isnot(None))
 Index('ix_ques_invited_mbr_invite_at', QuesInvite.invited_mbr_id, QuesInvite.invite_at.desc())
@@ -856,11 +856,15 @@ class PostLikeCurr(Base):
     __tablename__   = PostLikeKeys.table_name_curr
     __table_args__  = {'schema': PostLikeKeys.schema_pst}
     
+    id              = Column(PostLikeKeys.ID, BigInteger, Identity(always=True), primary_key= True)
     
     post_id         = Column(PostLikeKeys.post_id, UUID(as_uuid=True), primary_key= True)
     member_id       = Column(PostLikeKeys.member_id, UUID(as_uuid=True), nullable= False)
 
     like_at         = Column(PostLikeKeys.like_at, DateTime(True), default=func.now())
+    
+Index('ix_post_like_mbr_id', PostLikeCurr.post_id, PostLikeCurr.member_id, unique= True)
+Index('ix_post_fav_mbr_id_like_at_desc', PostLikeCurr.member_id, PostLikeCurr.like_at.desc())
 
 class PostLikeHist(Base):
     
@@ -918,6 +922,8 @@ class PostFolCurr(Base):
     member_id       = Column(PostFolKeys.member_id, UUID(as_uuid=True), nullable= False)
 
     follow_at          = Column(PostFolKeys.follow_at, DateTime(True), default=func.now())
+    
+Index('ix_post_fol_curr_mbr_id', PostFolCurr.post_id, PostFolCurr.member_id, unique= True)
 
 class PostFolHist(Base):
     
@@ -1036,6 +1042,7 @@ class DailyAnsLike(Base):
     like_at       = Column(DailyAnsLikeKeys.like_at, DateTime(True), default=func.now())
 
 Index('ix_daily_ans_like_mbr_id', DailyAnsLike.daily_answer_id, DailyAnsLike.member_id, unique= True)
+Index('ix_daily_ans_like_mbr_id_like_at_desc', DailyAnsLike.member_id, DailyAnsLike.like_at.desc())
 
 
 class DailyCmntLike(Base):
@@ -1050,7 +1057,7 @@ class DailyCmntLike(Base):
     
     like_at       = Column(DailyCmntLikeKeys.like_at, DateTime(True), default=func.now())
 
-Index('ix_mbr_daily_comment_like', DailyCmntLike.comment_id, DailyCmntLike.member_id)
+Index('ix_mbr_daily_comment_like', DailyCmntLike.comment_id, DailyCmntLike.member_id, unique= True)
 
 class DailyPostShare(Base):
     
@@ -1061,7 +1068,7 @@ class DailyPostShare(Base):
     
     daily_answer_id     = Column(DailyAnsShareKeys.daily_answer_id, UUID(as_uuid=True), index= True)
     share_mbr_id= Column(DailyAnsShareKeys.share_mbr_id, UUID(as_uuid=True), nullable= False)
-    shared_to_id= Column(DailyAnsShareKeys.shared_to_id, String(TableCharLimit._255), nullable= True)
+    share_to_id= Column(DailyAnsShareKeys.share_to_id, String(TableCharLimit._255), nullable= True)
     
     share_at        = Column(DailyAnsShareKeys.share_at, DateTime(True), default=func.now())
     shared_to_type  = Column(DailyAnsShareKeys.shared_to_type, String(TableCharLimit._255), index= True)
@@ -1079,7 +1086,7 @@ class CommentLike(Base):
     
     like_at       = Column(CommentLikeKeys.like_at, DateTime(True), default=func.now())
     
-Index('ix_mbr_comment_like', CommentLike.comment_id, CommentLike.member_id)
+Index('ix_mbr_comment_like', CommentLike.comment_id, CommentLike.member_id, unique= True)
 
 class MmbMsgReport(Base):
     
@@ -1107,7 +1114,7 @@ class PostShare(Base):
     
     post_id     = Column(PostShareKeys.post_id, UUID(as_uuid=True), index= True)
     share_mbr_id= Column(PostShareKeys.share_mbr_id, UUID(as_uuid=True), nullable= False)
-    shared_to_id= Column(PostShareKeys.shared_to_id, String(TableCharLimit._255), nullable= True)
+    share_to_id= Column(PostShareKeys.share_to_id, String(TableCharLimit._255), nullable= True)
     
     share_at        = Column(PostShareKeys.share_at, DateTime(True), default=func.now())
     shared_to_type  = Column(PostShareKeys.shared_to_type, String(TableCharLimit._255), index= True)
@@ -1783,7 +1790,7 @@ with engine.connect() as connection:
     
     
     connection.execute(text(promo_offer_sql))
-    # connection.execute(text(mmb_check_constraint_sql))
+    # connection.execute(text())
     connection.execute(text(mbr_bill_cycle_act_count_sql))
     connection.execute(text(mmb_follow_add_type_check_sql))
     connection.execute(text(mmb_report_check_constraint_sql))
@@ -1791,7 +1798,7 @@ with engine.connect() as connection:
     connection.execute(text(post_type_check_constraint_sql))
     connection.execute(text(poll_ques_seq_check_constraint_sql))
     connection.execute(text(poll_ans_seq_check_constraint_sql))
-    # connection.execute(text())
+    connection.execute(text(mmb_status_hist_add_type_check_sql))
     
     connection.execute(text(view_mem_fol_cnt_sql))
     connection.execute(text(view_cmnt_like_sql))

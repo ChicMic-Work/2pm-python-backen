@@ -897,7 +897,7 @@ class DailyAnsShareKeys(BaseKey):
     share_at    = "share_at"
     shared_to_type  = "shared_to_type"
     
-    shared_to_id    = "shared_to_id"
+    share_to_id    = "share_to_id"
     
     py_table_name   = "DailyPostShare"
 
@@ -932,6 +932,7 @@ class AliasHistKeys(BaseKey):
     
     table_name  = "discuss_forum_alias"
 
+    ID          = "tag_id"
     alias       = "df_alias_std"
     
     py_table_name = "AliasHist"
@@ -996,7 +997,7 @@ class PostShareKeys(BaseKey):
     share_at    = "share_at"
     shared_to_type  = "shared_to_type"
     
-    shared_to_id    = "shared_to_id"
+    share_to_id    = "share_to_id"
     
     py_table_name   = "PostShare"
     
