@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
-    create_ques_post_crud, create_draft_ques_post_crud
+    create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
 from dependencies import get_db
 
@@ -25,10 +25,13 @@ from utilities.constants import (
 from schemas.s_posts import (
     PostAnsDraftRequest,
     PostAnsRequest,
+    PostAnsResponse,
     PostBlogDraftRequest,
+    PostBlogQuesResponse,
     # PostCreateRequest,
     PostBlogRequest,
     PostPollRequest,
+    PostPollResponse,
     PostQuesDraftRequest,
     PostQuesRequest
 )
@@ -44,6 +47,8 @@ router = APIRouter(
     tags=['posts'],
 )
 
+
+#BLOG
 @router.post(
     "/create/blog/"
     )
@@ -69,9 +74,43 @@ async def create_blog_post(
                 await db.execute(del_query)
             
             msg = "Post created"
+            
+            tags = []
+            if post.tag1:
+                tags.append(post.tag1)
+            if post.tag2:
+                tags.append(post.tag2)
+            if post.tag3:
+                tags.append(post.tag3)
+            
+            
+            member = {
+                "image": user.image,
+                "alias": user.alias,
+                "is_anonymous": post_curr.is_anonymous
+            }
+            if post_curr.is_anonymous:
+                member["alias"] = "Anonymous"
+                member["image"] = None
 
+            res_data = PostBlogQuesResponse(
+                post_id = str(post.id),
+                member= member,
+                
+                title= post.title,
+                body= post.body,
+                type= post.type,
+                
+                interest_area_id= post.interest_id,
+                language_id= post.lang_id,
+                
+                post_at= post.post_at,
+                tags= tags
+            )
+            
             return {
                 "message": msg,
+                "data": res_data
             }
         
         except Exception as exc:
@@ -99,9 +138,11 @@ async def create_draft_blog_post(
 
         db.add(draft)
         await db.commit()
+        await db.refresh(draft)
 
         return {
-            "message": "Draft created"
+            "message": "Draft created",
+            "draft_id": str(draft.id)
         }
         
     except Exception as exc:
@@ -111,6 +152,8 @@ async def create_draft_blog_post(
         }
 
 
+
+#QUESTION
 @router.post(
     "/create/question/"
     )
@@ -136,9 +179,43 @@ async def create_question_post(
                 await db.execute(del_query)
                 
             msg = "Post created"
+            
+            tags = []
+            if post.tag1:
+                tags.append(post.tag1)
+            if post.tag2:
+                tags.append(post.tag2)
+            if post.tag3:
+                tags.append(post.tag3)
+            
+            member = {
+                "image": user.image,
+                "alias": user.alias,
+                "is_anonymous": post_curr.is_anonymous
+            }
+            
+            if post_curr.is_anonymous:
+                member["alias"] = "Anonymous"
+                member["image"] = None
+
+            res_data = PostBlogQuesResponse(
+                post_id = str(post.id),
+                member= member,
                 
+                title= post.title,
+                body= post.body,
+                type= post.type,
+                
+                interest_area_id= post.interest_id,
+                language_id= post.lang_id,
+                
+                post_at= post.post_at,
+                tags= tags
+            )
+            
             return {
                 "message": msg,
+                "data": res_data
             }
         
         except Exception as exc:
@@ -166,9 +243,11 @@ async def create_draft_question_post(
 
         db.add(draft)
         await db.commit()
+        await db.refresh(draft)
 
         return {
-            "message": "Draft created"
+            "message": "Draft created",
+            "draft_id": str(draft.id)
         }
         
     except Exception as exc:
@@ -178,6 +257,8 @@ async def create_draft_question_post(
         }
 
 
+
+#ANSWER
 @router.post(
     "/create/answer/"
     )
@@ -193,13 +274,18 @@ async def create_answer_post(
             
             user: MemberProfileCurr = request.user
 
-            daily_ques  = await db.get(DailyQues, post_request.post_ques_id)
-            if not daily_ques and post_request.is_for_daily:
+            ques  = await db.get(DailyQues, post_request.post_ques_id)
+            if not ques and post_request.is_for_daily:
                 raise Exception("Daily question not found")
-            if daily_ques and not post_request.is_for_daily:
+            if ques and not post_request.is_for_daily:
                 post_request.is_for_daily = True
+                
+            if not post_request.is_for_daily:
+                ques = await db.get(Post, post_request.post_ques_id)
+                if not ques:
+                    raise Exception("Question not found")
             
-            del_query, post, post_curr, post_hist  = await create_ans_post_crud(db, user.id, post_request.draft_id, post_request)
+            del_query, post, post_curr, post_hist  = await create_ans_post_crud(db, user.id, post_request.draft_id, post_request, ques)
 
             db.add(post)
 
@@ -212,9 +298,39 @@ async def create_answer_post(
                 await db.execute(del_query)
                 
             msg = "Post created"
+            
+            post_type = PostType.Answer
+            if post_request.is_for_daily:
+                post_type = PostType.DailyAns
+            
+            member= {
+                "image": user.image,
+                "alias": user.alias,
+                "is_anonymous": post_curr.is_anonymous
+            }
+            
+            if post_curr.is_anonymous:
+                member["alias"] = "Anonymous"
+                member["image"] = None
+            
+            req_data = PostAnsResponse(
+                post_id = str(post.id),
+                member= member,
                 
+                type= post_type,
+                
+                title= post_request.title,
+                body= post_request.body,
+                
+                post_ques_id=str(post_request.post_ques_id),
+                is_for_daily= post_request.is_for_daily,
+                
+                post_at= post.post_at
+            )
+            
             return {
                 "message": msg,
+                "data": req_data
             }
         
         except Exception as exc:
@@ -238,19 +354,26 @@ async def create_draft_answer_post(
     try:
         user: MemberProfileCurr = request.user
 
-        daily_ques  = await db.get(DailyQues, draft_request.post_ques_id)
-        if not daily_ques and draft_request.is_for_daily:
+        ques  = await db.get(DailyQues, draft_request.post_ques_id)
+        if not ques and draft_request.is_for_daily:
             raise Exception("Daily question not found")
-        if daily_ques and not draft_request.is_for_daily:
+        if ques and not draft_request.is_for_daily:
             draft_request.is_for_daily = True
 
-        draft = await create_draft_ans_post_crud(db, user.id, draft_request.draft_id, draft_request)
+        if not draft_request.is_for_daily:
+            ques = await db.get(Post, draft_request.post_ques_id)
+            if not ques:
+                raise Exception("Question not found")
+        
+        draft = await create_draft_ans_post_crud(db, user.id, draft_request.draft_id, draft_request, ques)
 
         db.add(draft)
-        db.commit()
+        await db.commit()
+        await db.refresh(draft)
 
         return {
-            "message": "Draft created"
+            "message": "Draft created",
+            "draft_id": str(draft.id)
         }
         
     except Exception as exc:
@@ -260,6 +383,8 @@ async def create_draft_answer_post(
         }
 
 
+
+#POLL
 @router.post(
     "/create/poll/"
     )
@@ -270,25 +395,62 @@ async def create_poll_post(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
 ):
-    async with db.begin():
+    
         try:
-            user: MemberProfileCurr = request.user
-            
-            del_queries, post, post_curr, post_hist, ques_list = await create_poll_post_crud(db, user.id, post_request.draft_id, post_request)
-            
-            db.add(post)
-            db.add(post_curr)
-            db.add(post_hist)
-            db.add_all(ques_list)
+            async with db.begin_nested():
+                user: MemberProfileCurr = request.user
+                
+                del_queries, post, post_curr, post_hist, ques_list = await create_poll_post_crud(db, user.id, post_request.draft_id, post_request)
+                
+                db.add(post)
+                db.add(post_curr)
+                db.add(post_hist)
+                db.add_all(ques_list)
 
-            if post_request.draft_id:
-                for del_query in del_queries:
-                    await db.execute(del_query)
-            
-            msg = "Post created"
-            
+                if post_request.draft_id:
+                    for del_query in del_queries:
+                        await db.execute(del_query)
+                
+                msg = "Post created"
+                tags = []
+                if post.tag1:
+                    tags.append(post.tag1)
+                if post.tag2:
+                    tags.append(post.tag2)
+                if post.tag3:
+                    tags.append(post.tag3)
+                    
+                member = {
+                    "image": user.image,
+                    "alias": user.alias,
+                    "is_anonymous": post_curr.is_anonymous
+                }
+
+            async with db.begin_nested():
+                
+                poll = await get_poll_post_items(db, post.id)
+                
+                req_data = PostPollResponse(
+                    post_id = str(post.id),
+                    member= member,
+                    
+                    type= post.type,
+                    title= post.title,
+                    body= post.body,
+                    
+                    tags= tags,
+                    interest_area_id= post.interest_id,
+                    language_id= post.lang_id,
+                    
+                    post_at= post.post_at,
+                    poll= poll
+                )
+
+                await db.commit()
+                
             return {
                 "message": msg,
+                "data": req_data
             }
 
         except Exception as exc:
@@ -318,10 +480,12 @@ async def create_draft_poll_post(
         if draft_request.draft_id:
             await db.execute(del_query)
         db.add_all(ques_list)
-        db.commit()
+        await db.commit()
+        await db.refresh(draft)
 
         return {
-            "message": "Draft created"
+            "message": "Draft created",
+            "draft_id": str(draft.id)
         }
         
     except Exception as exc:

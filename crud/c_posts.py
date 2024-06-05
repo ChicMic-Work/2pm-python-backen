@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from uuid_extensions import uuid7
 
-from typing import List
+from typing import List, Union
 
 from utilities.constants import (
     AddType, ChoicesType
@@ -15,6 +15,8 @@ from fastapi import HTTPException
 from starlette import status
 
 from schemas.s_posts import (
+    PollQuesChoicesRequest,
+    PollQuestionRequest,
     PostAnsDraftRequest,
     PostAnsRequest,
     PostBlogDraftRequest,
@@ -26,11 +28,11 @@ from schemas.s_posts import (
 )
 
 from utilities.constants import (
-    PostType
+    PostType, current_datetime
 )
 
 from database.models import (
-    DailyAns, MemberProfileCurr, PollQues, Post,
+    DailyAns, DailyQues, MemberProfileCurr, PollQues, Post,
     PostDraft, PostStatusCurr, PostStatusHist
 )
 from uuid_extensions import uuid7
@@ -53,7 +55,8 @@ async def create_blog_post_crud(
         title = post_request.title,
         body = post_request.body,
         interest_id = post_request.interest_area_id,
-        lang_id = post_request.language_id
+        lang_id = post_request.language_id,
+        post_at= current_datetime()
     )
 
     post_curr   = PostStatusCurr(
@@ -92,6 +95,7 @@ async def create_draft_blog_post_crud(
         post_draft.body = post_request.body
         post_draft.interest_id = post_request.interest_area_id
         post_draft.lang_id = post_request.language_id
+        post_draft.save_at = current_datetime()
 
     else:
         
@@ -127,7 +131,8 @@ async def create_ques_post_crud(
         title = post_request.title,
         body = post_request.body,
         interest_id = post_request.interest_area_id,
-        lang_id = post_request.language_id
+        lang_id = post_request.language_id,
+        post_at= current_datetime()
     )
 
     post_curr   = PostStatusCurr(
@@ -166,6 +171,7 @@ async def create_draft_ques_post_crud(
         post_draft.body = post_request.body
         post_draft.interest_id = post_request.interest_area_id
         post_draft.lang_id = post_request.language_id
+        post_draft.save_at = current_datetime()
 
     else:
         
@@ -188,6 +194,7 @@ async def create_ans_post_crud(
     member_id: UUID,
     draft_id: UUID,
     post_request: PostAnsRequest ,
+    ques: Union[Post, DailyQues]
 ):
     del_query = None
     if draft_id:
@@ -198,9 +205,10 @@ async def create_ans_post_crud(
             id = uuid7(),
             member_id = member_id,
             type = post_request.type,
-            title = post_request.title,
+            title = ques.title,
             body = post_request.body,
-            assc_post_id = post_request.post_ques_id
+            assc_post_id = post_request.post_ques_id,
+            post_at= current_datetime()
         )
 
         post_curr   = PostStatusCurr(
@@ -219,6 +227,7 @@ async def create_ans_post_crud(
             member_id = member_id,
             is_anonymous = post_request.is_anonymous,
             answer = post_request.body,
+            post_at= current_datetime()
         )
 
         post_curr = None
@@ -230,7 +239,8 @@ async def create_draft_ans_post_crud(
     db: AsyncSession,
     member_id: UUID,
     draft_id: UUID,
-    post_request: PostAnsDraftRequest
+    post_request: PostAnsDraftRequest,
+    ques: Union[Post, DailyQues]
 ):
     if draft_id:
 
@@ -238,18 +248,19 @@ async def create_draft_ans_post_crud(
         if not post_draft:
             raise Exception("Draft not found")
         post_draft.body = post_request.body
+        post_draft.save_at = current_datetime()
 
     else:
         
         post_draft  = PostDraft(
             member_id = member_id,
-            title = post_request.title,
             body = post_request.body,
+            title= ques.title,
             type = post_request.type,
             assc_post_id = post_request.post_ques_id,
             is_for_daily = post_request.is_for_daily
         )
-    
+      
     return post_draft
 
 
@@ -271,9 +282,10 @@ async def create_poll_post_crud(
         member_id = member_id,
         type = post_request.type,
         interest_id = post_request.interest_area_id,
-        language_id = post_request.language_id,
+        lang_id = post_request.language_id,
         title = post_request.title,
-        body = post_request.body
+        body = post_request.body,
+        post_at= current_datetime()
     )
 
     post_curr   = PostStatusCurr(
@@ -290,7 +302,7 @@ async def create_poll_post_crud(
     ques_list = []
 
     for ques in post_request.poll:
-        for i in range(0, ques.choices):
+        for i in range(0, len(ques.choices)):
             ques_list.append(
                 PollQues(
                     post_id = post.id,
@@ -319,6 +331,7 @@ async def create_draft_poll_post_crud(
             raise Exception("Draft not found")
         post_draft.body = post_request.body
         post_draft.title = post_request.title
+        post_draft.save_at = current_datetime()
 
         del_query = delete(PollQues).where(PollQues.post_id == post_draft.id)
 
@@ -328,7 +341,7 @@ async def create_draft_poll_post_crud(
             member_id = member_id,
             type = post_request.type,
             interest_id = post_request.interest_area_id,
-            language_id = post_request.language_id,
+            lang_id = post_request.language_id,
             title = post_request.title,
             body = post_request.body
         )
@@ -337,7 +350,7 @@ async def create_draft_poll_post_crud(
 
     for ques in post_request.poll:
 
-        for i in range(0, ques.choices):
+        for i in range(0, len(ques.choices)):
             ques_list.append(
                 PollQues(
                     post_id = post_draft.id,
@@ -352,8 +365,42 @@ async def create_draft_poll_post_crud(
     return del_query, post_draft, ques_list
 
 
+async def get_poll_post_items(
+    db: AsyncSession,
+    post_id: UUID
+):
 
-
+    result = await db.execute(select(PollQues).where(PollQues.post_id == post_id))
+    poll_data = result.scalars().all()
+    
+    poll_dict = {}
+    
+    for detail in poll_data:
+        qstn_key = (detail.qstn_seq_num, detail.ques_text)
+        if qstn_key not in poll_dict:
+            poll_dict[qstn_key] = {
+                "qstn_seq_num": detail.qstn_seq_num,
+                "ques_text": detail.ques_text,
+                "allow_multiple": detail.allow_multiple,
+                "choices": []
+            }
+        poll_dict[qstn_key]["choices"].append({
+            "poll_item_id": str(detail.poll_item_id),
+            "ans_seq_letter": detail.ans_seq_letter,
+            "ans_text": detail.ans_text
+        })
+        
+    poll_questions = [
+        PollQuestionRequest(
+            qstn_seq_num=k[0],
+            ques_text=k[1],
+            allow_multiple=v["allow_multiple"],
+            choices=[PollQuesChoicesRequest(**choice) for choice in v["choices"]]
+        )
+        for k, v in poll_dict.items()
+    ]
+    
+    return poll_questions
 
 
 

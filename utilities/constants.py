@@ -39,8 +39,11 @@ protected_endpoints = [
     '/profile/choices/', '/auth/logout/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
+    '/posts/get/drafts/'
 ]
 
+def current_datetime():
+    return datetime.now(tz=pytz.utc)
 
 class PollPostLimit:
     
@@ -106,6 +109,7 @@ class PostType:
     Question = "Q"
     Answer = "A" 
     Poll = "P"
+    DailyAns = "DA"
     
     types_list = ['B', 'Q', 'A', 'P']
     

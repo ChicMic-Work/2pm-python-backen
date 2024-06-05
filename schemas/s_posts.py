@@ -1,4 +1,6 @@
-from pydantic import BaseModel, field_validator, Field
+from pydantic import (
+    BaseModel, field_validator, Field, AwareDatetime
+)
 from uuid import UUID
 
 from utilities.constants import (
@@ -7,7 +9,7 @@ from utilities.constants import (
 
 from typing import List, Optional, Union
 
-    
+#BLOG
 class PostBlogRequest(BaseModel):
     type: str = Field(default= PostType.Blog, description="Blog post")
     
@@ -70,6 +72,7 @@ class PostBlogDraftRequest(BaseModel):
         return v
 
 
+#QUESTION
 class PostQuesRequest(BaseModel):
     type: str = Field( default= PostType.Question, description="Question Post")
     
@@ -114,7 +117,7 @@ class PostQuesDraftRequest(BaseModel):
 
     @field_validator('type')
     def validate_type(cls, v):
-        if v != PostType.Blog:
+        if v != PostType.Question:
             raise ValueError('type must be B')
         return v
     
@@ -130,6 +133,28 @@ class PostQuesDraftRequest(BaseModel):
         return v
 
 
+#RESPONSE - BLOG, QUESTION
+class PostBlogQuesResponse(BaseModel):
+    
+    post_id: str
+    member: dict
+    
+    type: str
+    title: str
+    body: str
+    
+    tags: Optional[List[Union[str, int]]] = []
+    
+    interest_area_id: int
+    language_id: int
+
+    post_at: AwareDatetime
+
+
+
+
+
+#ANSWER
 class PostAnsRequest(BaseModel):
     type: str = Field(default= PostType.Answer, description="Answer Post")
     
@@ -168,9 +193,27 @@ class PostAnsDraftRequest(BaseModel):
 
 
 
+#RESPONSE - ANSWER
+class PostAnsResponse(BaseModel):
+    
+    post_id: str
+    member: dict
+    
+    type: str
+    title: str
+    body: str
+    
+    post_ques_id: str
+    
+    is_for_daily: bool
 
+    post_at: AwareDatetime
+
+
+#POLL
 class PollQuesChoicesRequest(BaseModel):
-
+    
+    poll_item_id: str   = Field("", description="Poll Item ID, Used in response")
     ans_seq_letter: str = Field(..., max_length=PollPostLimit.ans_seq_letter_len, description="Choice Sequence Letter")
     ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
 
@@ -235,7 +278,25 @@ class PostPollRequest(BaseModel):
 
 
 
+#RESPONSE - POLL
+class PostPollResponse(BaseModel):
+    
+    post_id: str
+    member: dict
+    
+    type: str
+    
+    title: str
+    body: str
+    
+    tags: Optional[List[Union[str, int]]] = []
+    
+    interest_area_id: int
+    language_id: int
 
+    poll: List[PollQuestionRequest]
+
+    post_at: AwareDatetime
 
 
 
