@@ -26,7 +26,7 @@ from starlette.middleware.authentication import AuthenticationMiddleware
 
 from typing import Annotated
 
-from app import auth, choices, profile, posts
+from app import auth, choices, profile, posts, posts_list
 from utilities.constants import (
     EMAIL_HOST,
     EMAIL_HOST_USER,

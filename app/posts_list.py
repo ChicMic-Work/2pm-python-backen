@@ -103,8 +103,10 @@ async def get_member_draft(
         post_draft = await db.get(PostDraft, draft_id)
         if not post_draft:
             raise Exception("Draft not found")
+        if post_draft.member_id != user.id:
+            raise Exception("Draft not found")
         
-        if post_draft.type == PostType.Blog:
+        if post_draft.type == PostType.Blog or post_draft.type == PostType.Question:
             
             tags = []
             
@@ -120,17 +122,57 @@ async def get_member_draft(
                 interest_area_id= post_draft.interest_id,
                 language_id= post_draft.lang_id,
                 
-                post_at= post_draft.post_at,
+                post_at= post_draft.save_at,
                 tags= tags
             )
-        elif post_draft.type == PostType.Question:
-            post_draft = PostQuesDraftRequest
+            
+        # elif post_draft.type == PostType.Question:
+        #     post_draft = PostBlogQuesResponse(
+        #         post_id = str(post_draft.id),
+        #         member= {"alias": user.alias},
+                
+        #         title= post_draft.title,
+        #         body= post_draft.body,
+        #         type= post_draft.type,
+                
+        #         interest_area_id= post_draft.interest_id,
+        #         language_id= post_draft.lang_id,
+                
+        #         post_at= post_draft.save_at
+        #     )
         elif post_draft.type == PostType.Answer:
-            post_draft = PostAnsDraftRequest
+            post_draft = PostAnsResponse(
+                post_id = str(post_draft.id),
+                member= {"alias": user.alias},
+                
+                title= post_draft.title,
+                body= post_draft.body,
+                type= post_draft.type,
+
+                post_ques_id= post_draft.assc_post_id,
+                is_for_daily= post_draft.is_for_daily,
+                
+                post_at= post_draft.save_at
+            )
+            
         elif post_draft.type == PostType.Poll:
-            post_draft = PostPollRequest
+            post_draft = PostPollResponse(
+                post_id = str(post_draft.id),
+                member= {"alias": user.alias},
+                
+                title= post_draft.title,
+                body= post_draft.body,
+                type= post_draft.type,
+                
+                post_at= post_draft.save_at,
+                
+                interest_area_id= post_draft.interest_id,
+                language_id= post_draft.lang_id,
+                
+                poll= await get_poll_post_items(db, post_draft.id)
+            )
         
-        PostBlogQuesResponse
+        
         
         return {
             "message": "success",

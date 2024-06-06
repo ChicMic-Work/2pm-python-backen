@@ -895,7 +895,7 @@ class DailyAnsShareKeys(BaseKey):
     share_mbr_id    = "share_mbr_id"
     
     share_at    = "share_at"
-    shared_to_type  = "shared_to_type"
+    share_to_type  = "share_to_type"
     
     share_to_id    = "share_to_id"
     
@@ -995,7 +995,7 @@ class PostShareKeys(BaseKey):
     share_mbr_id    = "share_mbr_id"
     
     share_at    = "share_at"
-    shared_to_type  = "shared_to_type"
+    share_to_type  = "share_to_type"
     
     share_to_id    = "share_to_id"
     

@@ -39,7 +39,7 @@ from database.table_keys import (
 from sqlalchemy.orm import validates, relationship
 
 SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1_test"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test_sch"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
@@ -705,9 +705,10 @@ class PollMemTake(Base):
     
     member_id       = Column(PollMemResultKeys.member_id, UUID(as_uuid=True), nullable= False, index=True)
     
-    take_at         = Column(PollMemResultKeys.take_at, DateTime(True), default= func.now(), index=True )
+    take_at         = Column(PollMemResultKeys.take_at, DateTime(True), default= func.now())
 
 Index('ix_unique_poll_mem_take', PollMemTake.post_id, PollMemTake.member_id, unique=True)
+Index('ix_poll_mem_take_at', PollMemTake.member_id, PollMemTake.take_at.desc())
 
 class PollMemReveal(Base):
     
@@ -733,17 +734,18 @@ class PollInvite(Base):
     
     id              = Column(PollInvKeys.ID, BigInteger, Identity(always=True), primary_key= True)
     
-    poll_post_id    = Column(PollInvKeys.poll_post_id, UUID(as_uuid=True), nullable=False, index= True)
+    poll_post_id    = Column(PollInvKeys.poll_post_id, UUID(as_uuid=True), nullable=False)
     
     invite_at       = Column(PollInvKeys.invite_at, DateTime(True), default= func.now())
     
-    inviting_mbr_id = Column(PollInvKeys.inviting_mbr_id, UUID(as_uuid=True), nullable=False, index= True)
-    invited_mbr_id  = Column(PollInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False, index= True)
+    inviting_mbr_id = Column(PollInvKeys.inviting_mbr_id, UUID(as_uuid=True), nullable=False)
+    invited_mbr_id  = Column(PollInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False)
     
 Index('ix_poll_inviting_mbr_invite_at', PollInvite.inviting_mbr_id, PollInvite.invite_at.desc())
-Index('ix_poll_invited_mbr_invite_at', PollInvite.invited_mbr_id, PollInvite.invite_at.desc())
+# Index('ix_poll_invited_mbr_invite_at', PollInvite.invited_mbr_id, PollInvite.invite_at.desc())
 Index('ix_poll_invited_mbr_poll_post_id_invite_at', PollInvite.invited_mbr_id, PollInvite.poll_post_id, PollInvite.invite_at.desc())
-
+Index('ix_poll_inviting_mbr_poll_post_id_invite_at', PollInvite.inviting_mbr_id, PollInvite.poll_post_id, PollInvite.invite_at.desc())
+Index('ix_poll_inviting_mbr_poll_post_id_invited_mbr', PollInvite.inviting_mbr_id, PollInvite.invited_mbr_id, PollInvite.poll_post_id, unique=True)
 
 
 class QuesInvite(Base):
@@ -764,6 +766,8 @@ class QuesInvite(Base):
 Index('ix_ques_invite_ans', QuesInvite.ans_post_id, postgresql_where=QuesInvite.ans_post_id.isnot(None))
 Index('ix_ques_invited_mbr_invite_at', QuesInvite.invited_mbr_id, QuesInvite.invite_at.desc())
 Index('ix_ques_invited_mbr_ques_post_id_invite_at', QuesInvite.invited_mbr_id, QuesInvite.ques_post_id, QuesInvite.invite_at.desc())
+Index('ix_ques_inviting_mbr_ques_post_id_invite_at', QuesInvite.inviting_mbr_id, QuesInvite.ques_post_id, QuesInvite.invite_at.desc())
+Index('ix_ques_inviting_mbr_ques_post_id_invited_mbr', QuesInvite.inviting_mbr_id, QuesInvite.invited_mbr_id, QuesInvite.ques_post_id, unique=True)
 
 
 
@@ -858,7 +862,7 @@ class PostLikeCurr(Base):
     
     id              = Column(PostLikeKeys.ID, BigInteger, Identity(always=True), primary_key= True)
     
-    post_id         = Column(PostLikeKeys.post_id, UUID(as_uuid=True), primary_key= True)
+    post_id         = Column(PostLikeKeys.post_id, UUID(as_uuid=True))
     member_id       = Column(PostLikeKeys.member_id, UUID(as_uuid=True), nullable= False)
 
     like_at         = Column(PostLikeKeys.like_at, DateTime(True), default=func.now())
@@ -924,6 +928,7 @@ class PostFolCurr(Base):
     follow_at          = Column(PostFolKeys.follow_at, DateTime(True), default=func.now())
     
 Index('ix_post_fol_curr_mbr_id', PostFolCurr.post_id, PostFolCurr.member_id, unique= True)
+Index('ix_post_fol_curr_mbr_id_fav_at', PostFolCurr.member_id, PostFolCurr.follow_at.desc())
 
 class PostFolHist(Base):
     
@@ -1071,7 +1076,7 @@ class DailyPostShare(Base):
     share_to_id= Column(DailyAnsShareKeys.share_to_id, String(TableCharLimit._255), nullable= True)
     
     share_at        = Column(DailyAnsShareKeys.share_at, DateTime(True), default=func.now())
-    shared_to_type  = Column(DailyAnsShareKeys.shared_to_type, String(TableCharLimit._255), index= True)
+    share_to_type  = Column(DailyAnsShareKeys.share_to_type, String(TableCharLimit._255), index= True)
 
 
 class CommentLike(Base):
@@ -1117,7 +1122,7 @@ class PostShare(Base):
     share_to_id= Column(PostShareKeys.share_to_id, String(TableCharLimit._255), nullable= True)
     
     share_at        = Column(PostShareKeys.share_at, DateTime(True), default=func.now())
-    shared_to_type  = Column(PostShareKeys.shared_to_type, String(TableCharLimit._255), index= True)
+    share_to_type  = Column(PostShareKeys.share_to_type, String(TableCharLimit._255), index= True)
   
 
 
