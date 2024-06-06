@@ -5,6 +5,7 @@ from pydantic import (
 from typing import (
     List
 )
+from uuid import UUID
 
 class MemTakePollReq(BaseModel):
-    poll_item_ids: List[str] 
+    poll_item_ids: List[UUID] 

@@ -22,7 +22,7 @@ from crud.c_auth import (
 )
 
 from schemas.s_posts_actions import MemTakePollReq
-from schemas.s_posts_list import MemberPollResult, PostQuestionResponse, QuesAnsListResponse
+from schemas.s_posts_list import PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
     AuthTokenHeaderKey, PostType
 )
