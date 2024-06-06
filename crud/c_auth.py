@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import EmailStr
 
 from database.models import (
-    MemberProfileCurr, MemberProfileHist,
+    MemberProfileCurr, MemberProfileHist, MemberRegistration,
     SessionCurr, SessionPrev
 )
 from schemas.s_auth import (
@@ -28,43 +28,76 @@ import jwt
 
 from fastapi import HTTPException, status
 
-async def create_user(
+async def  create_registration_user(
     db: AsyncSession, 
     user: MemberSignup
 ):  
 
-    db_user = MemberProfileCurr(
+    db_user = MemberRegistration(
             id = uuid7(),
-            join_at= func.now(),
             update_at = func.now()
         )
-    
-    db_user_hist = MemberProfileHist(
-        member_id = db_user.id,
-        join_at= db_user.join_at,
-        add_type= AddType.Insert,
-        add_at= func.now()
-    )
 
-    if user.social_type == 1:
+    if user.social_type == SocialType.Apple:
 
         db_user.apple_id = user.social_id
         db_user.apple_email = user.email_id
-
-        db_user_hist.apple_id = user.social_id
-        db_user_hist.apple_email = user.email_id
 
     else:
 
         db_user.google_id = user.social_id
         db_user.google_email = user.email_id
 
-        db_user_hist.google_id = user.social_id
-        db_user_hist.google_email = user.email_id
+    return db_user
 
 
+async def create_user(
+    db: AsyncSession, 
+    user: MemberRegistration
+):  
 
-    return db_user, db_user_hist
+    db_user = MemberProfileCurr(
+            id = user.id,
+            join_at= func.now(),
+            update_at = func.now(),
+            bio = user.bio,
+            is_dating = user.is_dating,
+            gender = user.gender,
+            alias = user.alias,
+            alias_std = user.alias_std,
+            image = user.image
+        )
+    
+    db_user_hist = MemberProfileHist(
+        member_id = db_user.id,
+        join_at= db_user.join_at,
+        add_type= AddType.Insert,
+        add_at= func.now(),
+        bio = user.bio,
+        is_dating = user.is_dating,
+        gender = user.gender,
+        alias = user.alias,
+        alias_std = user.alias_std,
+        image = user.image
+    )
+
+    db_user.apple_id = user.apple_id
+    db_user.apple_email = user.apple_email
+
+    db_user_hist.apple_id = user.apple_id
+    db_user_hist.apple_email = user.apple_email
+
+    db_user.google_id = user.google_id
+    db_user.google_email = user.google_email
+
+    db_user_hist.google_id = user.google_id
+    db_user_hist.google_email = user.google_email
+
+    del_query = delete(MemberRegistration).where(
+        MemberRegistration.id == user.id
+    )
+
+    return del_query, db_user, db_user_hist
 
 
 async def get_user_by_social_id(
@@ -84,6 +117,24 @@ async def get_user_by_social_id(
     return (await db.execute(query)).scalar()
  
 
+async def get_registration_user(
+    db: AsyncSession,
+    social_id: str,
+    social_type: int
+):
+
+    if social_type == SocialType.Google:
+        query = select(MemberRegistration).filter(
+            (MemberRegistration.google_id == social_id)
+        )
+    else:
+        query = select(MemberRegistration).filter(
+            (MemberRegistration.apple_id == social_id)
+        )
+    
+    return (await db.execute(query)).scalar()
+
+
 async def get_user_by_id(
     db: AsyncSession,
     user_id: str
@@ -93,6 +144,16 @@ async def get_user_by_id(
         )
     
     return (await db.execute(query)).scalar()  
+
+async def get_registration_user_by_id(
+    db: AsyncSession,
+    user_id: str
+) -> MemberRegistration | None:
+    query = select(MemberRegistration).filter(
+            (MemberRegistration.id == user_id)
+        )
+    
+    return (await db.execute(query)).scalar()
 
 """
 return (await db.scalars(select(MemberProfile).filter(MemberProfile.id == user_id))).first()

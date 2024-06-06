@@ -34,11 +34,13 @@ async def get_db():
 async def create_access_token(
     user_id: UUID, 
     ses_id: UUID,
-    expires: timedelta
+    expires: timedelta,
+    reg_user: bool = False
 ):
     try:
         expires_access = datetime.now(pytz.utc) + expires
-        access_payload = {'id': str(user_id), 'exp': expires_access, 'ses': str(ses_id)} #'sub': email, 
+        access_payload = {'id': str(user_id), 'exp': expires_access, 'ses': str(ses_id), "reg_user": reg_user}
+        
         access_token = jwt.encode(access_payload, SECRET_KEY, algorithm=ALGORITHM)
     except Exception as e:
         pass
@@ -65,7 +67,7 @@ def get_current_user(token: str, middleware = False):
                 status_code= status.HTTP_401_UNAUTHORIZED,
                 detail='Could not validate user'
             )
-        return {'id': user_id, 'ses': payload.get('ses')}
+        return {'id': user_id, 'ses': payload.get('ses'), 'reg_user': payload.get('reg_user')}
     except ExpiredSignatureError:
         raise AuthenticationError('Token Expired')
     except JWTError:

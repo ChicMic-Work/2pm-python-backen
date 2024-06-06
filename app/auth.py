@@ -1,3 +1,5 @@
+import random
+import string
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 
 from pydantic import ValidationError
@@ -34,7 +36,9 @@ from dependencies import (
     )
 
 from crud.c_auth import (
+    create_registration_user,
     delete_session,
+    get_registration_user,
     get_user_by_social_id, 
     create_user,
     create_signin_session,
@@ -142,7 +146,15 @@ async def login_user(
                 create_user_request.social_id, 
                 create_user_request.social_type
             )
-            
+            registration_user = False
+            if not db_user:
+                db_user = await get_registration_user(
+                    db, 
+                    create_user_request.social_id, 
+                    create_user_request.social_type
+                )
+                registration_user = True
+
             ip = None
             new_user = False
             if request.client.host:
@@ -158,15 +170,22 @@ async def login_user(
                     new_user = True
                     db_user.update_at = func.now()
             else:
-                db_user, db_user_hist = await create_user(db, create_user_request)
+                db_user = await create_registration_user(db, create_user_request)
                 new_user = True
-                db.add(db_user_hist)
 
             db.add(db_user)
-            session = await create_signin_session(db_user.id, ip, create_user_request)
-            db.add(session)
+
+            if not registration_user:
+                session = await create_signin_session(db_user.id, ip, create_user_request)
+                db.add(session)
+                session_id = session.id
+
+                access_token = await create_access_token(db_user.id, session_id, access_token_expire)
+            else:
+                N = 10
+                session_id  = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(N))
                 
-            access_token = await create_access_token(db_user.id, session.id, access_token_expire)
+                access_token = await create_access_token(db_user.id, session_id, access_token_expire, True)
             
             memb_resp = None
             
@@ -182,6 +201,12 @@ async def login_user(
 
                 lang_list, int_list = await get_mem_choices(db, db_user.id)
 
+                
+                if registration_user:
+                    join_at = None
+                else:
+                    join_at = db_user.join_at
+
                 memb_resp = MemberProfileAuthResponse(
                     alias = db_user.alias,
                     bio= db_user.bio,
@@ -189,7 +214,7 @@ async def login_user(
                     apple_id= db_user.apple_id,
                     apple_email = db_user.apple_email,
                     google_email = db_user.google_email,
-                    join_at = db_user.join_at,
+                    join_at = join_at,
                     gender= db_user.gender,
                     is_dating= db_user.is_dating,
                     image= image,

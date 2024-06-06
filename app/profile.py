@@ -5,6 +5,7 @@ from crud.c_profile import (
 )
 
 from crud.c_auth import (
+    create_user,
     get_user_by_id
 )
 
@@ -29,7 +30,7 @@ from schemas.s_profile import (
 
 from database.models import (
     Languages, InterestAreas,
-    MemberProfileCurr, MemberProfileHist
+    MemberProfileCurr, MemberProfileHist, MemberRegistration
 )
 
 from utilities.constants import (
@@ -83,11 +84,13 @@ async def create_profile(
 ):
 
     try:
-        user: MemberProfileCurr = request.user
+        if request.user.__getattribute__("reg_user"):
+            user: MemberRegistration = request.user
+            reg_user = True
+        else:
+            user: MemberProfileCurr = request.user
+            reg_user = False
 
-        new_user = False
-        if not user.alias:
-            new_user = True
 
         try:
             normalized_alias = normalize_nickname(profile.alias)
@@ -141,17 +144,20 @@ async def create_profile(
         user.gender = profile.gender
         user.update_at = func.now()
         
-        new_profile = await create_mem_profile_history(user)
-        
-        if new_user:
+        if reg_user:
+            del_query, user, new_profile = await create_user(db, user)
             add_query_l = await create_mem_languages(db, user.id, profile.language_choices, False)
             add_query_i = await create_mem_interst_areas(db, user.id, profile.interest_area_choices, False)
             db.add_all(add_query_i)
             db.add_all(add_query_l)
 
+        else:
+            new_profile = await create_mem_profile_history(user)
+
         db.add(user)
         db.add(new_profile)
         await db.commit()
+        await db.execute(del_query)
         await db.refresh(user)
 
         lang_list, int_list = await get_mem_choices(db, user.id)

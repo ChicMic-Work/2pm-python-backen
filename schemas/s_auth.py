@@ -34,7 +34,7 @@ class MemberProfileAuthResponse(BaseModel):
     apple_id: str| None = None
     apple_email: EmailStr | None = None
     google_email: EmailStr | None = None
-    join_at: AwareDatetime
+    join_at: AwareDatetime | None = None
     is_dating: bool = True
     gender: str = None
     image: str | None = None

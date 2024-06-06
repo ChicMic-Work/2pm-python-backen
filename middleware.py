@@ -2,7 +2,7 @@ from fastapi import Request, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from dependencies import get_current_user
-from crud.c_auth import get_user_by_id
+from crud.c_auth import get_registration_user_by_id, get_user_by_id
 from dependencies import get_db
 from database.models import SessionLocal
 
@@ -96,11 +96,19 @@ class BearerTokenAuthBackend(AuthenticationBackend):
                 user_cred = get_current_user(token, True)
                 
                 async with SessionLocal() as db:
-                    user = await get_user_by_id(db, user_cred["id"])
-        
+                    reg_user = False
+                    if user_cred["reg_user"]:
+                        user = await get_registration_user_by_id(db, user_cred["id"])
+                        reg_user = True
+                    else:
+                        user = await get_user_by_id(db, user_cred["id"])
+
                 if not user:
                     raise AuthenticationError('Unauthorized Access')
                 user.__setattr__('ses', user_cred["ses"])
+
+                user.__setattr__('reg_user', reg_user)
+                    
 
                 return AuthCredentials(["authenticated"]), user
         

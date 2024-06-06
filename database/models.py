@@ -1,5 +1,5 @@
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, backref
 
@@ -47,10 +47,9 @@ SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
-# engine = create_engine(SQLALCHEMY_DATABASE_URL,)
-
-
 SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
+
+# engine = create_engine(SQLALCHEMY_DATABASE_URL,)
 # SessionLocal = sessionmaker(bind= engine, autocommit=False, autoflush=False)
 
 Base = declarative_base()
@@ -77,7 +76,11 @@ class MemberRegistration(Base):
     gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255), nullable= True)
     is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default, nullable= True)
 
+    update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True))
 
+Index('ix_apple_id_regs_unique', MemberRegistration.apple_id, unique=True, postgresql_where=MemberRegistration.alias.isnot(None))
+Index('ix_alias_regs_unique', MemberRegistration.alias, unique=True, postgresql_where=MemberRegistration.alias.isnot(None))
+Index('ix_google_id_regs_unique', MemberRegistration.google_id, unique=True, postgresql_where=MemberRegistration.google_id.isnot(None))
 
 
 class MemberProfileCurr(Base):
@@ -1799,39 +1802,41 @@ WHERE redeem_status = 'E';
 
 from sqlalchemy.schema import CreateTable
 
-"""
-with engine.connect() as connection:
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS mbr"))
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS clb"))
-    connection.execute(text("CREATE SCHEMA IF NOT EXISTS pst"))
-    
-    connection.commit()
-    connection.close()
+def create_tables(engine: Engine ):
 
-Base.metadata.create_all(bind=engine)
+    with engine.connect() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS mbr"))
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS clb"))
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS pst"))
+        
+        connection.commit()
+        connection.close()
 
-with engine.connect() as connection:
-    
-    
-    connection.execute(text(promo_offer_sql))
-    # connection.execute(text())
-    connection.execute(text(mbr_bill_cycle_act_count_sql))
-    connection.execute(text(mmb_follow_add_type_check_sql))
-    connection.execute(text(mmb_report_check_constraint_sql))
-    connection.execute(text(mmb_ban_add_type_check_sql))
-    connection.execute(text(post_type_check_constraint_sql))
-    connection.execute(text(poll_ques_seq_check_constraint_sql))
-    connection.execute(text(poll_ans_seq_check_constraint_sql))
-    connection.execute(text(mmb_status_hist_add_type_check_sql))
-    
-    connection.execute(text(view_mem_fol_cnt_sql))
-    connection.execute(text(view_cmnt_like_sql))
-    connection.execute(text(view_post_score_sql))
-    connection.execute(text(view_mmb_tags_sql))
-    connection.execute(text(view_daily_ans_score_sql))
-    connection.execute(text(view_poll_result_sql))
-    connection.execute(text(view_daily_ans_cmnt_like_sql))
-    
+    Base.metadata.create_all(bind=engine)
 
-    connection.commit()
-"""
+    with engine.connect() as connection:
+        
+        
+        connection.execute(text(promo_offer_sql))
+        # connection.execute(text())
+        connection.execute(text(mbr_bill_cycle_act_count_sql))
+        connection.execute(text(mmb_follow_add_type_check_sql))
+        connection.execute(text(mmb_report_check_constraint_sql))
+        connection.execute(text(mmb_ban_add_type_check_sql))
+        connection.execute(text(post_type_check_constraint_sql))
+        connection.execute(text(poll_ques_seq_check_constraint_sql))
+        connection.execute(text(poll_ans_seq_check_constraint_sql))
+        connection.execute(text(mmb_status_hist_add_type_check_sql))
+        
+        connection.execute(text(view_mem_fol_cnt_sql))
+        connection.execute(text(view_cmnt_like_sql))
+        connection.execute(text(view_post_score_sql))
+        connection.execute(text(view_mmb_tags_sql))
+        connection.execute(text(view_daily_ans_score_sql))
+        connection.execute(text(view_poll_result_sql))
+        connection.execute(text(view_daily_ans_cmnt_like_sql))
+        
+
+        connection.commit()
+
+# create_tables(engine)
