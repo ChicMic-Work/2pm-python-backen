@@ -24,7 +24,7 @@ class MemberProfileKeys(BaseKey):
     
     table_name_curr    = "mbr_profile_curr"
     table_name_hist    = "mbr_profile_hist"
-    
+    table_name_register = "mbr_registration"
     
     
     id          = "mbr_id"

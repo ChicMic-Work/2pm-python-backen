@@ -38,12 +38,12 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
+# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test_sch"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
-# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
@@ -55,20 +55,19 @@ SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=Fals
 
 Base = declarative_base()
 
-default_uuid7 = text("uuid_generate_v7()")
-# default_uuid7 = text("uuid_generate_v4()")
+# default_uuid7 = text("uuid_generate_v7()")
+default_uuid7 = text("uuid_generate_v4()")
 
-class MemberProfileCurr(Base):
-    
-    __tablename__   = MemberProfileKeys.table_name_curr
+class MemberRegistration(Base):
+
+    __tablename__   = MemberProfileKeys.table_name_register
     __table_args__ = {'schema': MemberProfileKeys.schema_mbr}
     
     id              = Column(MemberProfileKeys.id , UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     apple_id        = Column(MemberProfileKeys.apple_id, String(TableCharLimit._255), unique=True, nullable= True)
-    apple_email     = Column(MemberProfileKeys.apple_email, String(TableCharLimit._255), nullable= True)
+    apple_email     = Column(MemberProfileKeys.apple_email, String(TableCharLimit._330), nullable= True)
     google_id       = Column(MemberProfileKeys.google_id, String(TableCharLimit._255), unique=True, nullable= True)
-    google_email    = Column(MemberProfileKeys.google_email, String(TableCharLimit._255), nullable= True)
-    join_at         = Column(MemberProfileKeys.join_at, DateTime(timezone= True), default= func.now(), nullable= False)
+    google_email    = Column(MemberProfileKeys.google_email, String(TableCharLimit._330), nullable= True)
     
     alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255), unique=True, nullable= True)
     alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255), nullable= True)
@@ -77,10 +76,33 @@ class MemberProfileCurr(Base):
     image           = Column(MemberProfileKeys.image, String(TableCharLimit._255), nullable= True)
     gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255), nullable= True)
     is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default, nullable= True)
+
+
+
+
+class MemberProfileCurr(Base):
     
-    update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True), nullable= True)
+    __tablename__   = MemberProfileKeys.table_name_curr
+    __table_args__ = {'schema': MemberProfileKeys.schema_mbr}
     
-Index('ix_apple_id_curr_unique', MemberProfileCurr.apple_id, unique=True, postgresql_where=MemberProfileCurr.apple_id.isnot(None))
+    id              = Column(MemberProfileKeys.id , UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    apple_id        = Column(MemberProfileKeys.apple_id, String(TableCharLimit._255), unique=True, nullable= True)
+    apple_email     = Column(MemberProfileKeys.apple_email, String(TableCharLimit._330), nullable= True)
+    google_id       = Column(MemberProfileKeys.google_id, String(TableCharLimit._255), unique=True, nullable= True)
+    google_email    = Column(MemberProfileKeys.google_email, String(TableCharLimit._330), nullable= True)
+    join_at         = Column(MemberProfileKeys.join_at, DateTime(timezone= True), default= func.now(), nullable= False)
+    
+    alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255), unique=True)
+    alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255))
+    
+    bio             = Column(MemberProfileKeys.bio, String(TableCharLimit._255), nullable= True)
+    image           = Column(MemberProfileKeys.image, String(TableCharLimit._255), nullable= True)
+    gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255))
+    is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default)
+    
+    update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True))
+    
+Index('ix_apple_id_curr_unique', MemberProfileCurr.apple_id, unique=True)
 Index('ix_alias_curr_unique', MemberProfileCurr.alias, unique=True, postgresql_where=MemberProfileCurr.alias.isnot(None))
 Index('ix_google_id_curr_unique', MemberProfileCurr.google_id, unique=True, postgresql_where=MemberProfileCurr.google_id.isnot(None))
 
