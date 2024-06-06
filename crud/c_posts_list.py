@@ -21,6 +21,40 @@ from crud.c_posts import (
     get_poll_post_items
 )
 
+def get_post_tags_list(post: Post) -> List[str]:
+
+    tags = []
+    if post.tag1:
+        tags.append(post.tag1)
+    if post.tag2:
+        tags.append(post.tag2)
+    if post.tag3:
+        tags.append(post.tag3)
+
+    return tags
+
+
+def get_member_dict_for_post_detail(
+    post_curr: PostStatusCurr,
+    user: MemberProfileCurr = None,
+    image: str = None,
+    alias: str = None,
+):
+    member = {
+            "image": user.image if user else image,
+            "alias": user.alias if user else alias,
+            "is_anonymous": post_curr.is_anonymous
+        }
+    if post_curr.is_anonymous:
+        member["alias"] = "Anonymous"
+        member["image"] = None
+        member["is_anonymous"] = post_curr.is_anonymous
+    
+    return member
+
+
+
+
 ## DRAFTS ##
 #BLOG
 async def get_blog_drafts(

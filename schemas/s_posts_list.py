@@ -35,8 +35,3 @@ class QuesAnsListResponse(BaseModel):
     body: str
     
     post_at: AwareDatetime
-    
-
-class MemberPollResult(BaseModel):
-    
-    poll_item_id: str

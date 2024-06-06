@@ -13,14 +13,14 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
+from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts
 from dependencies import get_db
 
 from crud.c_auth import (
     get_user_by_id
 )
 
-from schemas.s_posts_list import MemberPollResult, PostQuestionResponse, QuesAnsListResponse
+from schemas.s_posts_list import  PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
     AuthTokenHeaderKey, PostType
 )
@@ -45,11 +45,6 @@ from database.models import (
 )
 
 from app.posts import router
-
-# router = APIRouter(
-#     prefix='/drafts',
-#     tags=['drafts'],
-# )
 
 @router.get(
     "/get/drafts/"
@@ -208,26 +203,9 @@ async def get_member_questions(
         res_data = []
         
         for ques in questions:
-            tags = []
-            if ques[0].tag1:
-                tags.append(ques[0].tag1)
-            if ques[0].tag2:
-                tags.append(ques[0].tag2)
-            if ques[0].tag3:
-                tags.append(ques[0].tag3)
+            tags = get_post_tags_list(ques[0])
             
-            member = {
-                "image": ques[2],
-                "alias": ques[3],
-                "is_anonymous": ques[1].is_anonymous
-            }
-            
-            if ques[1].is_anonymous:
-                member = {
-                    "image": None,
-                    "alias": None,
-                    "is_anonymous": ques[1].is_anonymous
-                }
+            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3])
             
             res_data.append(PostBlogQuesResponse(
                 post_id = str(ques[0].id),
@@ -277,20 +255,7 @@ async def get_member_question(
         ans_list = []
         
         for ans in answers:
-            
-            member = {
-                "image": ans[2],
-                "alias": ans[3],
-                "is_anonymous": ans[1].is_anonymous
-            }
-            
-            if ans[1].is_anonymous:
-                member = {
-                    "image": None,
-                    "alias": None,
-                    "is_anonymous": ans[1].is_anonymous
-                }
-            
+            member = get_member_dict_for_post_detail(ans[1], image=ans[2], alias= ans[3])
             
             ans_list.append(QuesAnsListResponse(
                 post_id = str(ans[0].id),
@@ -356,26 +321,9 @@ async def get_member_polls(
         res_data = []
         
         for ques in polls:
-            tags = []
-            if ques[0].tag1:
-                tags.append(ques[0].tag1)
-            if ques[0].tag2:
-                tags.append(ques[0].tag2)
-            if ques[0].tag3:
-                tags.append(ques[0].tag3)
+            tags = get_post_tags_list(ques[0])
             
-            member = {
-                "image": ques[2],
-                "alias": ques[3],
-                "is_anonymous": ques[1].is_anonymous
-            }
-            
-            if ques[1].is_anonymous:
-                member = {
-                    "image": None,
-                    "alias": None,
-                    "is_anonymous": ques[1].is_anonymous
-                }
+            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3])
             
             res_data.append(PostBlogQuesResponse(
                 post_id = str(ques[0].id),
@@ -422,22 +370,9 @@ async def get_member_poll(
         
         post, poll_items = await get_post_poll(db, post_id)
         
-        member = {
-            "image": user.image,
-            "alias": user.alias,
-            "is_anonymous": post[1].is_anonymous
-        }
-        if post[1].is_anonymous:
-            member["alias"] = "Anonymous"
-            member["image"] = None
+        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
         
-        tags = []
-        if post[0].tag1:
-            tags.append(post[0].tag1)
-        if post[0].tag2:
-            tags.append(post[0].tag2)
-        if post[0].tag3:
-            tags.append(post[0].tag3)
+        tags = get_post_tags_list(post[0])
         
         poll_data = PostPollResponse(
             post_id = str(post[0].id),
@@ -466,12 +401,8 @@ async def get_member_poll(
             elif isinstance(mem_poll_status, list):
                 for poll in mem_poll_status:
                     mem_poll.append(
-                        MemberPollResult(
-                            poll_item_id = str(poll[0].poll_item_id),
-                        )
+                        str(poll[0].poll_item_id)
                     )
-            
-        
         
         return {
             "message": "success",
