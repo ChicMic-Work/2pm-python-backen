@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import (
     APIRouter, Depends, 
     HTTPException, Header, 
@@ -12,13 +13,14 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_poll_drafts, get_ques_drafts
+from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
 from dependencies import get_db
 
 from crud.c_auth import (
     get_user_by_id
 )
 
+from schemas.s_posts_list import MemberPollResult, PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
     AuthTokenHeaderKey, PostType
 )
@@ -38,7 +40,7 @@ from schemas.s_posts import (
 )
 
 from database.models import (
-    DailyQues, MemberProfileCurr, Post,
+    DailyQues, MemberProfileCurr, PollMemResult, Post,
     PostDraft
 )
 
@@ -185,3 +187,306 @@ async def get_member_draft(
             "message": str(exc),
             "data": None
         }
+        
+
+@router.get(
+    "/get/questions/"
+)
+async def get_member_questions(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+
+        user: MemberProfileCurr = request.user
+        questions = await get_post_questions_list(db, limit, offset)
+        
+        res_data = []
+        
+        for ques in questions:
+            tags = []
+            if ques[0].tag1:
+                tags.append(ques[0].tag1)
+            if ques[0].tag2:
+                tags.append(ques[0].tag2)
+            if ques[0].tag3:
+                tags.append(ques[0].tag3)
+            
+            member = {
+                "image": ques[2],
+                "alias": ques[3],
+                "is_anonymous": ques[1].is_anonymous
+            }
+            
+            if ques[1].is_anonymous:
+                member = {
+                    "image": None,
+                    "alias": None,
+                    "is_anonymous": ques[1].is_anonymous
+                }
+            
+            res_data.append(PostBlogQuesResponse(
+                post_id = str(ques[0].id),
+                member= member,
+                
+                title= ques[0].title,
+                body= ques[0].body,
+                type= ques[0].type,
+                
+                interest_area_id= ques[0].interest_id,
+                language_id= ques[0].lang_id,
+                
+                post_at= ques[0].post_at,
+                tags= tags
+            ))
+        
+        return {
+            "message": "success",
+            "data": res_data
+        }
+
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+@router.get(
+    "/get/questions/{post_id}"
+)
+async def get_member_question(
+    request: Request,
+    response: Response,
+    post_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+
+        user: MemberProfileCurr = request.user
+        
+        post, answers = await get_post_question(db, post_id, limit, offset)
+        
+        ans_list = []
+        
+        for ans in answers:
+            
+            member = {
+                "image": ans[2],
+                "alias": ans[3],
+                "is_anonymous": ans[1].is_anonymous
+            }
+            
+            if ans[1].is_anonymous:
+                member = {
+                    "image": None,
+                    "alias": None,
+                    "is_anonymous": ans[1].is_anonymous
+                }
+            
+            
+            ans_list.append(QuesAnsListResponse(
+                post_id = str(ans[0].id),
+                member= member,
+                type= ans[0].type,
+                title= ans[0].title,
+                body= ans[0].body,
+                post_at= ans[0].post_at 
+            ))
+        
+        # member = {
+        #     "image": post[2],
+        #     "alias": post[3],
+        #     "is_anonymous": post[1].is_anonymous
+        # }
+        
+        # if post[1].is_anonymous:
+        #     member = {
+        #         "image": None,
+        #         "alias": None,
+        #         "is_anonymous": post[1].is_anonymous
+        #     }
+        
+        # PostAnsResponse(
+        #     post_id = str(post.id),
+        #     member= {"alias": user.alias},
+        #     type= post.type,
+        #     title= post.title,
+        #     body= post.body,
+        #     post_at= post.post_at,
+        #     ans_list= ans_list
+        # )
+        
+        return {
+            "message": "success",
+            "data": {"ans_list": ans_list}
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+        
+@router.get(
+    "/get/polls/"
+)
+async def get_member_polls(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+
+        user: MemberProfileCurr = request.user
+        polls = await get_post_polls_list(db, limit, offset)
+        
+        res_data = []
+        
+        for ques in polls:
+            tags = []
+            if ques[0].tag1:
+                tags.append(ques[0].tag1)
+            if ques[0].tag2:
+                tags.append(ques[0].tag2)
+            if ques[0].tag3:
+                tags.append(ques[0].tag3)
+            
+            member = {
+                "image": ques[2],
+                "alias": ques[3],
+                "is_anonymous": ques[1].is_anonymous
+            }
+            
+            if ques[1].is_anonymous:
+                member = {
+                    "image": None,
+                    "alias": None,
+                    "is_anonymous": ques[1].is_anonymous
+                }
+            
+            res_data.append(PostBlogQuesResponse(
+                post_id = str(ques[0].id),
+                member= member,
+                
+                title= ques[0].title,
+                body= ques[0].body,
+                type= ques[0].type,
+                
+                interest_area_id= ques[0].interest_id,
+                language_id= ques[0].lang_id,
+                
+                post_at= ques[0].post_at,
+                tags= tags
+            ))
+        
+        return {
+            "message": "success",
+            "data": res_data
+        }
+        
+                
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+
+@router.get(
+    "/get/polls/{post_id}"
+)
+async def get_member_poll(
+    request: Request,
+    response: Response,
+    post_id: str,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+
+        user: MemberProfileCurr = request.user
+        
+        post, poll_items = await get_post_poll(db, post_id)
+        
+        member = {
+            "image": user.image,
+            "alias": user.alias,
+            "is_anonymous": post[1].is_anonymous
+        }
+        if post[1].is_anonymous:
+            member["alias"] = "Anonymous"
+            member["image"] = None
+        
+        tags = []
+        if post[0].tag1:
+            tags.append(post[0].tag1)
+        if post[0].tag2:
+            tags.append(post[0].tag2)
+        if post[0].tag3:
+            tags.append(post[0].tag3)
+        
+        poll_data = PostPollResponse(
+            post_id = str(post[0].id),
+            member= member,
+            
+            type= post[0].type,
+            title= post[0].title,
+            body= post[0].body,
+            
+            tags= tags,
+            interest_area_id= post[0].interest_id,
+            language_id= post[0].lang_id,
+            
+            post_at= post[0].post_at,
+            poll= poll_items
+        )
+        
+        
+        poll_reveal = None
+        mem_poll = []
+        mem_poll_status = await get_member_poll_taken(db, user.id, post_id)
+        
+        if mem_poll_status:
+            if isinstance(mem_poll_status[0], datetime):
+                poll_reveal = mem_poll_status[0]
+            elif isinstance(mem_poll_status, list):
+                for poll in mem_poll_status:
+                    mem_poll.append(
+                        MemberPollResult(
+                            poll_item_id = str(poll[0].poll_item_id),
+                        )
+                    )
+            
+        
+        
+        return {
+            "message": "success",
+            "data": {
+                "poll": poll_data,
+                "reveal_at": poll_reveal,
+                "selected_choices": mem_poll
+            }
+        }
+                    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+        
