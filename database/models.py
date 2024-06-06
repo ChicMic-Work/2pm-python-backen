@@ -701,9 +701,9 @@ class PollMemTake(Base):
     id              = Column(PollMemResultKeys.ID, BigInteger, Identity(always=True), primary_key= True)
     
     # poll_item_id    = Column(PollMemResultKeys.poll_item_id, UUID(as_uuid=True), nullable=False)
-    post_id         = Column(PollMemResultKeys.post_id, UUID(as_uuid=True), nullable= False, index= True)
+    post_id         = Column(PollMemResultKeys.post_id, UUID(as_uuid=True), nullable= False)
     
-    member_id       = Column(PollMemResultKeys.member_id, UUID(as_uuid=True), nullable= False, index=True)
+    member_id       = Column(PollMemResultKeys.member_id, UUID(as_uuid=True), nullable= False)
     
     take_at         = Column(PollMemResultKeys.take_at, DateTime(True), default= func.now())
 
@@ -742,10 +742,9 @@ class PollInvite(Base):
     invited_mbr_id  = Column(PollInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False)
     
 Index('ix_poll_inviting_mbr_invite_at', PollInvite.inviting_mbr_id, PollInvite.invite_at.desc())
-# Index('ix_poll_invited_mbr_invite_at', PollInvite.invited_mbr_id, PollInvite.invite_at.desc())
 Index('ix_poll_invited_mbr_poll_post_id_invite_at', PollInvite.invited_mbr_id, PollInvite.poll_post_id, PollInvite.invite_at.desc())
 Index('ix_poll_inviting_mbr_poll_post_id_invite_at', PollInvite.inviting_mbr_id, PollInvite.poll_post_id, PollInvite.invite_at.desc())
-Index('ix_poll_inviting_mbr_poll_post_id_invited_mbr', PollInvite.inviting_mbr_id, PollInvite.invited_mbr_id, PollInvite.poll_post_id, unique=True)
+Index('ix_poll_inviting_mbr_poll_post_id_invited_mbr', PollInvite.poll_post_id, PollInvite.inviting_mbr_id, PollInvite.invited_mbr_id, unique=True)
 
 
 class QuesInvite(Base):
@@ -755,7 +754,7 @@ class QuesInvite(Base):
     
     id              = Column(QuesInvKeys.ID, BigInteger, Identity(always=True), primary_key= True)
     
-    ques_post_id    = Column(QuesInvKeys.ques_post_id, UUID(as_uuid=True), index= True)
+    ques_post_id    = Column(QuesInvKeys.ques_post_id, UUID(as_uuid=True))
     ans_post_id     = Column(QuesInvKeys.ans_post_id, UUID(as_uuid=True), nullable= True)
     
     invite_at       = Column(QuesInvKeys.invite_at, DateTime(True), default= func.now())
@@ -763,11 +762,9 @@ class QuesInvite(Base):
     inviting_mbr_id = Column(QuesInvKeys.inviting_mbr_id, UUID(as_uuid=True), nullable=False)
     invited_mbr_id  = Column(QuesInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False)
 
-Index('ix_ques_invite_ans', QuesInvite.ans_post_id, postgresql_where=QuesInvite.ans_post_id.isnot(None))
-Index('ix_ques_invited_mbr_invite_at', QuesInvite.invited_mbr_id, QuesInvite.invite_at.desc())
 Index('ix_ques_invited_mbr_ques_post_id_invite_at', QuesInvite.invited_mbr_id, QuesInvite.ques_post_id, QuesInvite.invite_at.desc())
 Index('ix_ques_inviting_mbr_ques_post_id_invite_at', QuesInvite.inviting_mbr_id, QuesInvite.ques_post_id, QuesInvite.invite_at.desc())
-Index('ix_ques_inviting_mbr_ques_post_id_invited_mbr', QuesInvite.inviting_mbr_id, QuesInvite.invited_mbr_id, QuesInvite.ques_post_id, unique=True)
+Index('ix_ques_inviting_mbr_ques_post_id_invited_mbr', QuesInvite.ques_post_id, QuesInvite.inviting_mbr_id, QuesInvite.invited_mbr_id, unique=True)
 
 
 
