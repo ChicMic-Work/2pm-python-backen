@@ -5,6 +5,8 @@ from crud.c_profile import (
 )
 
 from crud.c_auth import (
+    create_reg_user_sign_in_session,
+    create_signin_session,
     create_user,
     get_user_by_id
 )
@@ -38,13 +40,13 @@ from utilities.constants import (
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
     ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
-    ChoicesType
+    ChoicesType, access_token_expire
 )
 
 from utilities.common import normalize_nickname
 
 from utilities.s3_upload import (
-    upload_file, remove_file
+    upload_file, remove_file,
 )
 
 from typing import (
@@ -62,7 +64,7 @@ from starlette import status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func
 
-from dependencies import get_db
+from dependencies import create_access_token, get_db
 
 
 router = APIRouter(
@@ -84,10 +86,11 @@ async def create_profile(
 ):
 
     try:
-        if request.user.__getattribute__("reg_user"):
+        try:
+            request.user.__getattribute__("reg_user")
             user: MemberRegistration = request.user
             reg_user = True
-        else:
+        except:
             user: MemberProfileCurr = request.user
             reg_user = False
 
@@ -146,18 +149,33 @@ async def create_profile(
         
         if reg_user:
             del_query, user, new_profile = await create_user(db, user)
+            ip = None
+            if request.client.host:
+                ip = request.client.host
+            session = create_reg_user_sign_in_session(
+                user.id,
+                ip,
+                request.user.__getattribute__("social_id"),
+                request.user.__getattribute__("device_type"),
+                request.user.__getattribute__("device_model"),
+                request.user.__getattribute__("type")
+            )
             add_query_l = await create_mem_languages(db, user.id, profile.language_choices, False)
             add_query_i = await create_mem_interst_areas(db, user.id, profile.interest_area_choices, False)
             db.add_all(add_query_i)
             db.add_all(add_query_l)
+            db.add(session)
+            access_token = await create_access_token(user.id, session.id, access_token_expire)
 
         else:
             new_profile = await create_mem_profile_history(user)
+            access_token = None
 
         db.add(user)
         db.add(new_profile)
+        if reg_user:
+            await db.execute(del_query)
         await db.commit()
-        await db.execute(del_query)
         await db.refresh(user)
 
         lang_list, int_list = await get_mem_choices(db, user.id)
@@ -174,7 +192,8 @@ async def create_profile(
             image= user.image,
             gender= user.gender,
             language_choices= lang_list,
-            interest_area_choices= int_list
+            interest_area_choices= int_list,
+            token= access_token
         )
         
     except Exception as exc:

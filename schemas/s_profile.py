@@ -53,3 +53,4 @@ class MemberProfileResponse(BaseModel):
     image: str |None = None
     language_choices: List[LangIAResponse] = []
     interest_area_choices: List[LangIAResponse] = []
+    token: str|None = None

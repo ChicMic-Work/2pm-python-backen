@@ -181,6 +181,29 @@ async def create_signin_session(
     
     return session
 
+def create_reg_user_sign_in_session(
+    user_id: UUID,
+    ip: str,
+    social_id: str,
+    device_type: str,
+    device_model: str,
+    type: str
+) -> SessionCurr:
+    session = SessionCurr(
+        id = uuid7(),
+        member_id = user_id,
+        signin_id = social_id,
+        ip = ip,
+        device_type = device_type,
+        device_model = device_model,
+        signin_at = func.now(),
+    )
+    if type == SocialType.Apple:
+        session.type = SocialType._1
+    else:
+        session.type = SocialType._0
+    
+    return session
 
 async def delete_session(
     db: AsyncSession,

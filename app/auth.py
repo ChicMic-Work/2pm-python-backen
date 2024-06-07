@@ -29,6 +29,7 @@ from database.models import (
 )
 
 from dependencies import (
+    create_registration_token,
     get_db, 
     bcrypt_context, 
     create_access_token, 
@@ -185,7 +186,15 @@ async def login_user(
                 N = 10
                 session_id  = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(N))
                 
-                access_token = await create_access_token(db_user.id, session_id, access_token_expire, True)
+                access_token = await create_registration_token(
+                    db_user.id,
+                    session_id,
+                    access_token_expire,
+                    create_user_request.device_type,
+                    create_user_request.device_model,
+                    create_user_request.social_id,
+                    create_user_request.social_type
+                )
             
             memb_resp = None
             

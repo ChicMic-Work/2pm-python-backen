@@ -97,7 +97,7 @@ class BearerTokenAuthBackend(AuthenticationBackend):
                 
                 async with SessionLocal() as db:
                     reg_user = False
-                    if user_cred["reg_user"]:
+                    if user_cred.get("reg_user"):
                         user = await get_registration_user_by_id(db, user_cred["id"])
                         reg_user = True
                     else:
@@ -107,7 +107,13 @@ class BearerTokenAuthBackend(AuthenticationBackend):
                     raise AuthenticationError('Unauthorized Access')
                 user.__setattr__('ses', user_cred["ses"])
 
-                user.__setattr__('reg_user', reg_user)
+                if reg_user:
+                    user.__setattr__('reg_user', reg_user)
+                    user.__setattr__("social_id", user_cred["social_id"]),
+                    user.__setattr__("device_type", user_cred["device_type"]),
+                    user.__setattr__("device_model", user_cred["device_model"]),
+                    user.__setattr__("type", user_cred["type"])
+                    
                     
 
                 return AuthCredentials(["authenticated"]), user

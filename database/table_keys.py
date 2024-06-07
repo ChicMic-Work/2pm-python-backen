@@ -40,7 +40,7 @@ class MemberProfileKeys(BaseKey):
     bio         = "df_bio"
     image       = "df_img"
     gender      = "gender"
-    is_dating   = "is_dating "
+    is_dating   = "is_dating"
     
     mem_id_FK   = BaseKey.schema_mbr + "." + table_name_curr + "." + id
 

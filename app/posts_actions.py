@@ -13,7 +13,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_actions import check_if_poll_items_exist, check_if_user_took_poll, check_poll_details_before_take, member_create_poll_entries
+from crud.c_posts_actions import check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_poll_details_before_take, member_create_poll_entries
 from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
 from dependencies import get_db
 
@@ -62,7 +62,7 @@ async def member_take_poll(
     try:
         user: MemberProfileCurr = request.user
         
-        if len(choices.poll_item_ids) != set(choices.poll_item_ids):
+        if len(choices.poll_item_ids) != len(set(choices.poll_item_ids)):
             raise Exception("Duplicate poll item ids")
 
         poll_item = await db.get(PollQues, choices.poll_item_ids[0])
@@ -83,7 +83,11 @@ async def member_take_poll(
         await check_if_user_took_poll(db, user.id, post.id)
 
         #create poll member result
-        new_entries = await member_create_poll_entries(db, user.id, post.id, choices.poll_item_ids, poll_items)
+        new_entries, poll_take = await member_create_poll_entries(db, post.id, user.id,poll_items)
+        
+        db.add_all(new_entries)
+        db.add(poll_take)
+        await db.commit()
 
         return {
             "message": "success"
@@ -97,17 +101,28 @@ async def member_take_poll(
         
 
 @router.post(
-    "/reveal/poll/"
+    "/reveal/poll/{post_id}"
     )
 async def member_reveal_poll(
     request: Request,
-    post_request: PostPollRequest,
+    post_id: str,
     response: Response,
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db)
 ):
     try:
         user: MemberProfileCurr = request.user
+        
+        post = await db.get(Post, post_id)
+        if not post:
+            raise Exception("Post not found")
+        
+        mem_reveal = await check_member_reveal_took_poll(db, user.id, post_id)
+        
+        
+        
+        db.add(mem_reveal)
+        await db.commit()
         
     except Exception as exc:
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR

@@ -126,5 +126,50 @@ async def member_create_poll_entries(
         for poll_item in poll_items
     ]
     
-    return new_entries
+    poll_take = PollMemTake(
+        post_id=post_id,
+        member_id=user_id
+    )
     
+    return new_entries, poll_take
+    
+    
+async def check_member_reveal_took_poll(
+    db: AsyncSession,
+    post_id: UUID,
+    user_id: UUID
+):
+    
+    query = (
+        select(PollMemReveal)
+        .where(
+            PollMemReveal.post_id == post_id,
+            PollMemReveal.member_id == user_id
+        )
+    )
+
+    results = await db.execute(query)
+    mem_reveal = results.fetchone()
+
+    if mem_reveal:
+        raise Exception("User already revealed poll")
+    
+    query = (
+        select(PollMemTake)
+        .where(
+            PollMemTake.post_id == post_id,
+            PollMemTake.member_id == user_id
+        )
+    )
+
+    results = await db.execute(query)
+    mem_take = results.fetchone()
+    if mem_take:
+        raise Exception("User already took poll")
+    
+    reveal = PollMemReveal(
+        post_id=post_id,
+        member_id=user_id
+    )
+    
+    return reveal
