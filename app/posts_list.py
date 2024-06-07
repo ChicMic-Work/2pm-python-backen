@@ -421,3 +421,25 @@ async def get_member_poll(
         }
         
         
+@router.get(
+    "/HOP/"
+)
+async def hot_off_press(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
