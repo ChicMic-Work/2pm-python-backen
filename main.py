@@ -9,7 +9,7 @@ from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi_mail import (
     FastMail, 
     MessageSchema, 
@@ -38,7 +38,10 @@ from utilities.constants import (
     DEFAULT_FROM_EMAIL,
     AuthTokenHeaderKey
 )
-import redis
+
+from services import (
+    socket_server
+)
 
 app = FastAPI()
 app.include_router(auth.router)
@@ -47,6 +50,17 @@ app.include_router(profile.router)
 app.include_router(posts.router)
 
 app.add_middleware(AuthenticationMiddleware, backend=BearerTokenAuthBackend())
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You might want to restrict this to specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.mount("/", socket_server.socket_app)
 
 templates = Jinja2Templates(directory="templates")
 

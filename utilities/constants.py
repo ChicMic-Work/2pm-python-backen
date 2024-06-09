@@ -86,6 +86,10 @@ class TableCharLimit:
     _330        = 330
 
 
+class PaginationLimit:
+
+    random = 30
+
 class SocialType:
     Google = 0
     Apple = 1
@@ -110,7 +114,6 @@ class PostType:
     Question = "Q"
     Answer = "A" 
     Poll = "P"
-    DailyAns = "DA"
     
     types_list = ['B', 'Q', 'A', 'P']
     

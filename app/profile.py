@@ -1,6 +1,7 @@
 from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
+    get_searched_users,
     get_used_alias,
 )
 
@@ -75,7 +76,6 @@ router = APIRouter(
 
 @router.post(
     "/create/",
-    # response_model=MemberProfileResponse,
     )
 async def create_profile(
     request: Request,
@@ -204,7 +204,6 @@ async def create_profile(
     
 @router.get(
     "/user",
-    # response_model = MemberProfileResponse
     )
 async def get_user_profile(
     request: Request,
@@ -365,7 +364,6 @@ async def delete_profile_image(
         
 @router.post(
     "/choices/",
-    # response_model= List[LangIAResponse]
 )
 async def member_languages(
     request: Request,
@@ -411,3 +409,31 @@ async def member_languages(
             return {
                 "message": str(exc)
             }
+        
+
+@router.get(
+    "/get/users/",
+)
+async def search_users(
+    request: Request,
+    response: Response,
+    name: str,
+    limit: int = 10,
+    offset: int = 0,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+):
+    try:
+        users = await get_searched_users(db, name, limit, offset)
+        
+        return {
+            "message": "success",
+            "data": users
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }

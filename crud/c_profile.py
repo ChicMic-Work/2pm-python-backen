@@ -64,3 +64,23 @@ async def create_mem_profile_history(
     )
 
     return new_profile
+
+
+async def get_searched_users(
+    db: AsyncSession,
+    name: str,
+    limit: int,
+    offset: int
+):
+
+    query = (
+        select(MemberProfileCurr.alias, MemberProfileCurr.id, MemberProfileCurr.image, MemberProfileCurr.bio)
+        .where(MemberProfileCurr.alias.like(f"%{name}%"))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    results = await db.execute(query)
+    users = results.fetchall()
+
+    return users

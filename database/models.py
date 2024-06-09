@@ -103,6 +103,7 @@ class MemberProfileCurr(Base):
     gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255))
     is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default)
     
+    
     update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True))
     
 Index('ix_alias_curr_unique', MemberProfileCurr.alias, unique=True, postgresql_where=MemberProfileCurr.alias.isnot(None))
@@ -1178,7 +1179,29 @@ class FeedbackLog(Base):
     
     is_resolved   = Column(FeedbackKeys.is_resolved, Boolean, default= 0)
     
+class ViewPostScore(Base):
+    
+    __tablename__   = ViewPostScoreKeys.tablename
+    __table_args__  = {'schema': ViewPostScoreKeys.schema_pst}
 
+    post_id         = Column(ViewPostScoreKeys.post_id, UUID(as_uuid=True), primary_key= True)
+    type            = Column(ViewPostScoreKeys.type, String(TableCharLimit._255))
+
+    view_count      = Column(ViewPostScoreKeys.view_count, Integer)
+    comment_cnt     = Column(ViewPostScoreKeys.comment_cnt, BigInteger)
+    like_cnt        = Column(ViewPostScoreKeys.like_cnt, BigInteger)
+    favorite_cnt    = Column(ViewPostScoreKeys.favorite_cnt, BigInteger)
+    follow_cnt      = Column(ViewPostScoreKeys.follow_cnt, BigInteger)
+    answer_cnt      = Column(ViewPostScoreKeys.answer_cnt, BigInteger)
+    poll_entry_cnt  = Column(ViewPostScoreKeys.poll_entry_cnt, BigInteger)
+    share_cnt       = Column(ViewPostScoreKeys.share_cnt, BigInteger)
+    report_cnt      = Column(ViewPostScoreKeys.report_cnt, BigInteger)
+    
+    post_score      = Column(ViewPostScoreKeys.post_score, BigInteger)
+    
+    create_at       = Column(ViewPostScoreKeys.create_at, DateTime(True))
+
+Index('idx_v_post_score_post_id_answ0', ViewPostScore.post_id, postgresql_where= ViewPostScore.type.is_not('A'))
 
 """
 class ViewDailyCmntLikeCnt(Base):
@@ -1245,26 +1268,7 @@ class ViewCommentLikeCount(Base):
     create_at     = Column(ViewCmntLikeCntKeys.create_at, DateTime(True), default=func.now())
 
 
-class ViewPostScore(Base):
-    
-    __tablename__   = ViewPostScoreKeys.tablename
-    __table_args__  = {'schema': ViewPostScoreKeys.schema_pst}
 
-    post_id         = Column(ViewPostScoreKeys.post_id, UUID(as_uuid=True), primary_key= True)
-
-    view_count      = Column(ViewPostScoreKeys.view_count, Integer, default= 0)
-    comment_cnt     = Column(ViewPostScoreKeys.comment_cnt, Integer, default= 0)
-    like_cnt        = Column(ViewPostScoreKeys.like_cnt, Integer, default= 0)
-    favorite_cnt    = Column(ViewPostScoreKeys.favorite_cnt, Integer, default= 0)
-    follow_cnt      = Column(ViewPostScoreKeys.follow_cnt, Integer, default= 0)
-    answer_cnt      = Column(ViewPostScoreKeys.answer_cnt, Integer, default= 0)
-    poll_entry_cnt  = Column(ViewPostScoreKeys.poll_entry_cnt, Integer, default= 0)
-    share_cnt       = Column(ViewPostScoreKeys.share_cnt, Integer, default= 0)
-    report_cnt      = Column(ViewPostScoreKeys.report_cnt, Integer, default= 0)
-    
-    post_score      = Column(ViewPostScoreKeys.post_score, Integer, default= 0)
-    
-    create_at       = Column(ViewPostScoreKeys.create_at, DateTime(True), default=func.now())
 
 
 class ViewMmbTag(Base):

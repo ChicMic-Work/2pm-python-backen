@@ -300,8 +300,6 @@ async def create_answer_post(
             msg = "Post created"
             
             post_type = PostType.Answer
-            if post_request.is_for_daily:
-                post_type = PostType.DailyAns
             
             member= {
                 "image": user.image,

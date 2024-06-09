@@ -1,6 +1,7 @@
-from sqlalchemy import select, asc, delete, desc
+from sqlalchemy import select, asc, delete, desc, func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import operators
 
 from uuid import UUID
 from uuid_extensions import uuid7
@@ -8,12 +9,14 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from utilities.constants import (
-    AddType, ChoicesType, PostType
+    AddType, ChoicesType, PaginationLimit, PostType, current_datetime
 )
 
+from datetime import datetime, timedelta
+
 from database.models import (
-    DailyAns, MemberProfileCurr, PollMemResult, PollMemReveal, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist
+    DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollMemReveal, PollQues, Post,
+    PostDraft, PostStatusCurr, PostStatusHist, ViewPostScore
 )
 from uuid_extensions import uuid7
 
@@ -313,3 +316,118 @@ async def get_member_poll_taken(
         return None
     
     return poll_selected
+
+
+async def get_HOP_polls(
+    db: AsyncSession,
+    limit: int,
+    offset: int
+):
+    query = (
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+        .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+        .where(
+            Post.post_at >= (current_datetime() - timedelta(days=1)),
+            PostStatusCurr.is_blocked == False,
+            PostStatusCurr.is_deleted == False
+        )
+        .order_by(desc(Post.post_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    results = await db.execute(query)
+    
+    posts = results.fetchall()
+
+    return posts
+
+
+async def get_CD_answers(
+    db: AsyncSession,
+    limit: int,
+    offset: int
+):
+    query = (
+        select(DailyAns, DailyQues.title, MemberProfileCurr.image, MemberProfileCurr.alias)
+        .join(MemberProfileCurr, DailyAns.member_id == MemberProfileCurr.id)
+        .join(DailyQues, DailyAns.ques_id == DailyQues.id)
+        .where(
+            DailyAns.is_deleted == False,
+            DailyAns.is_blocked == False,
+            func.date(DailyAns.post_at) == current_datetime().date(),
+        )
+        .order_by(desc(DailyAns.post_at))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    results = await db.execute(query)
+    answers = results.fetchall()
+    
+    return answers
+
+
+async def get_MP_posts(
+    db: AsyncSession,
+    limit: int,
+    offset: int,
+    interest: str
+):
+    
+    where_clause_dict = {}
+
+    if interest:
+        where_clause_dict["Post.interest_id"] = interest
+        where_clause_dict["PostStatusCurr.is_blocked"] = False
+        where_clause_dict["PostStatusCurr.is_deleted"] = False
+    else:
+        where_clause_dict["PostStatusCurr.is_blocked"] = False
+        where_clause_dict["PostStatusCurr.is_deleted"] = False
+
+    query = (
+        select(ViewPostScore, Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        .join(Post, Post.id == ViewPostScore.post_id)
+        .join(PostStatusCurr, PostStatusCurr.post_id == ViewPostScore.post_id)
+        .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+    )
+
+    for table_column, value in where_clause_dict.items():
+        table, column = table_column.split(".")
+        mapped_table = globals()[table]
+        query = query.where(getattr(mapped_table, column) == value)
+
+    query = query.order_by(desc(ViewPostScore.post_score)).limit(PaginationLimit.random).offset(offset).limit(limit)
+
+    result = await db.execute(query)
+    post_scores = result.fetchall()
+
+    return post_scores
+
+
+async def get_searched_posts(
+    db: AsyncSession,
+    search: str,
+    limit: int,
+    offset: int
+):
+    
+    pgroonga_match_op = operators.custom_op('&@')
+
+    query = (
+            select(Post)
+            .where(
+                or_(
+                    Post.tag1.op('&@')(search),
+                    Post.tag2.op('&@')(search),
+                    Post.tag3.op('&@')(search),
+                    Post.title.op('&@')(search),
+                    Post.body.op('&@')(search),
+                )
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+    result = await db.execute(query)
+    posts = result.fetchall()

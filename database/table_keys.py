@@ -459,17 +459,18 @@ class ViewPostScoreKeys(BaseKey):
     tablename   = "v_post_score"
     
     post_id     = "post_id"
+    type        = "post_type"
     
-    view_count  = "view_cnt"
-    comment_cnt = "comment_cnt"
-    like_cnt    = "like_cnt"
-    favorite_cnt= "favorite_cnt"
-    follow_cnt  = "follow_cnt"
+    view_count  = "pst_view_cnt"
+    comment_cnt = "pst_comment_cnt"
+    like_cnt    = "pst_like_cnt"
+    favorite_cnt= "pst_fav_cnt"
+    follow_cnt  = "pst_follow_cnt"
     
-    answer_cnt  = "answer_cnt"
-    poll_entry_cnt  = "poll_entry_cnt"
-    share_cnt  = "share_cnt"
-    report_cnt  = "report_cnt"
+    answer_cnt  = "pst_answer_cnt"
+    poll_entry_cnt  = "pst_poll_entry_cnt"
+    share_cnt  = "pst_share_cnt"
+    report_cnt  = "pst_report_cnt"
     
     post_score  = "post_score"
     
