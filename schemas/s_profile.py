@@ -54,3 +54,24 @@ class MemberProfileResponse(BaseModel):
     language_choices: List[LangIAResponse] = []
     interest_area_choices: List[LangIAResponse] = []
     token: str|None = None
+    
+    
+class MemberProfileDetailResponse(BaseModel):
+
+    id: str
+    alias: str
+
+    join_at: AwareDatetime
+    bio: str | None = None
+    
+    is_dating: bool = True
+    gender: str
+    image: str |None = None
+    my_profile: bool = False
+
+
+class SearchedUserResponse(BaseModel):
+    id: UUID
+    alias: str
+    image: str | None = None
+    bio: str | None = None

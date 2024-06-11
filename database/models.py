@@ -401,7 +401,7 @@ class MmbFollowHist(Base):
     following_id     = Column(MmbFollowKeys.following_id, UUID(as_uuid=True), nullable= False, index= True)
     followed_id      = Column(MmbFollowKeys.followed_id, UUID(as_uuid=True), nullable= False, index= True)
     
-    add_at           = Column(MmbFollowKeys.add_at, DateTime(True), default= func.now(), nullable= True)
+    add_at           = Column(MmbFollowKeys.add_at, DateTime(True), default= func.now())
     add_type         = Column(MmbFollowKeys.add_type, String(TableCharLimit._255))
 
 mmb_follow_add_type_check_sql = """
@@ -566,7 +566,7 @@ CHECK (add_type IN ('A', 'D'));
 class DailyQues(Base):
     
     __tablename__ = DailyQuesKeys.tablename
-    __table_args__  = {'schema': DailyQuesKeys.schema_pst}
+    __table_args__  = {'schema': DailyQuesKeys.schema_clb}
     
     id            = Column(DailyQuesKeys.id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     
@@ -625,6 +625,10 @@ class Post(Base):
     tag1_id      = Column(PostKeys.tag1_id, BigInteger, nullable= True)
     tag2_id      = Column(PostKeys.tag2_id, BigInteger, nullable= True)
     tag3_id      = Column(PostKeys.tag3_id, BigInteger, nullable= True)
+    
+    # tag1_std = Column(PostKeys.tag1_std,String(TableCharLimit._255),nullable=False)
+    # tag2_std = Column(PostKeys.tag2_std,String(TableCharLimit._255),nullable=True)
+    # tag3_std = Column(PostKeys.tag3_std,String(TableCharLimit._255),nullable=True)
     
     post_at       = Column(PostKeys.posted_at, DateTime(True), default= func.now())
 
@@ -1600,7 +1604,7 @@ CREATE MATERIALIZED VIEW pst.v_mbr_tag_cnt
 WITH (FILLFACTOR = 70) AS
 SELECT 
     dft.tag_id, 
-    dft.df_tag_std, 
+    dft.df_tag_std,
     mbr_tag.mbr_id, 
     mbr_tag.tag_cnt, 
     mbr_tag.fst_at, 
@@ -1609,35 +1613,35 @@ SELECT
 FROM (
     SELECT
         mbr_id,
-        tag_id,
+        tag_std,
         COUNT(*) AS tag_cnt,
         MIN(post_at) AS fst_at,
         MAX(post_at) AS lst_at
     FROM (
         SELECT 
             mbr_id,
-            tag1_id AS tag_id,
+            tag1_std AS tag_std,
             post_at
-        FROM pst.post_posted 
-        WHERE tag1_id IS NOT NULL
+        FROM pst.post_posted
         UNION ALL
         SELECT 
             mbr_id,
-            tag2_id AS tag_id,
+            tag2_std AS tag_std,
             post_at
         FROM pst.post_posted
-        WHERE tag2_id IS NOT NULL
+        WHERE tag2_std IS NOT NULL
         UNION ALL
         SELECT 
             mbr_id,
-            tag3_id AS tag_id,
+            tag3_std AS tag_std,
             post_at
         FROM pst.post_posted
-        WHERE tag3_id IS NOT NULL
+        WHERE tag3_std IS NOT NULL
     ) tags
-    GROUP BY mbr_id, tag_id
+    GROUP BY tags.mbr_id, tags.tag_std
 ) AS mbr_tag
-JOIN pst.discuss_forum_tag dft ON mbr_tag.tag_id = dft.tag_id;
+JOIN pst.discuss_forum_tag dft ON mbr_tag.tag_std = dft.df_tag_std
+WITH NO DATA;
 
 CREATE INDEX idx_v_mbr_tag_cnt_df_tag_std_lst_at_d ON pst.v_mbr_tag_cnt (df_tag_std, lst_at DESC);
 CREATE INDEX idx_v_mbr_tag_cnt_mbr_id ON pst.v_mbr_tag_cnt (mbr_id);

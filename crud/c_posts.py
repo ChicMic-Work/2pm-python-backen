@@ -205,7 +205,7 @@ async def create_ans_post_crud(
             id = uuid7(),
             member_id = member_id,
             type = post_request.type,
-            title = ques.title,
+            title = " ",
             body = post_request.body,
             assc_post_id = post_request.post_ques_id,
             post_at= current_datetime()

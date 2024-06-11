@@ -28,7 +28,8 @@ from typing import Annotated
 
 from app import (
     auth, choices, profile, 
-    posts, posts_list, posts_actions
+    posts, posts_list, posts_actions,
+    profile_actions
 )
 from utilities.constants import (
     EMAIL_HOST,

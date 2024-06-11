@@ -379,6 +379,10 @@ class PostKeys(BaseKey):
     tag2_id     = "tag2_id"
     tag3_id     = "tag3_id"
     
+    tag1_std     = "tag1_std"
+    tag2_std     = "tag2_std"
+    tag3_std     = "tag3_std"
+    
     posted_at   = "post_at"
 
     post_id_FK  = BaseKey.schema_pst + "." + table_name + "." + id
@@ -933,7 +937,7 @@ class AliasHistKeys(BaseKey):
     
     table_name  = "discuss_forum_alias"
 
-    ID          = "tag_id"
+    ID          = "alias_id"
     alias       = "df_alias_std"
     
     py_table_name = "AliasHist"

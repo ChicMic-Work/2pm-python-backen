@@ -1,8 +1,11 @@
+from crud.c_posts_list import convert_all_post_list_for_response
 from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
     get_searched_users,
     get_used_alias,
+    get_user_posts_details_by_user_id,
+    get_user_profile_details_by_id,
 )
 
 from crud.c_auth import (
@@ -27,13 +30,15 @@ from schemas.s_choices import (
 
 from schemas.s_profile import (
     MemberProfileCreate,
+    MemberProfileDetailResponse,
     MemberProfileResponse,
-    ProfileImageUpload
+    ProfileImageUpload,
+    SearchedUserResponse
 )
 
 from database.models import (
     Languages, InterestAreas,
-    MemberProfileCurr, MemberProfileHist, MemberRegistration
+    MemberProfileCurr, MemberProfileHist, MemberRegistration, PostStatusCurr
 )
 
 from utilities.constants import (
@@ -424,11 +429,109 @@ async def search_users(
     db:AsyncSession = Depends(get_db),
 ):
     try:
-        users = await get_searched_users(db, name, limit, offset)
+        if not name.strip():
+            raise Exception("name cannot be empty")
+        users = await get_searched_users(db, name.strip(), limit, offset)
+        res_data = []
+        
+        for user in users:
+            
+            res_data.append(SearchedUserResponse(
+                id=user.id,
+                image = user.image,
+                alias = user.alias,
+                bio= user.bio
+            ))
         
         return {
             "message": "success",
-            "data": users
+            "data": res_data
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+
+@router.get(
+    "/get/users/{user_id}",
+)
+async def get_user_profile(
+    request: Request,
+    response: Response,
+    user_id: str,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user = await get_user_profile_details_by_id(db, user_id)
+        
+        res_user = MemberProfileDetailResponse(
+            id = str(user.id),
+            join_at=user.join_at,
+            image = user.image,
+            alias = user.alias,
+            is_dating=user.is_dating,
+            gender=user.gender,
+            bio=user.bio
+        )
+        
+        if request.user.id == user.id:
+            res_user.my_profile = True
+        
+        return {
+            "message": "success",
+            "data": res_user
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }    
+        
+        
+
+@router.get(
+    "/get/posts/users/{user_id}",
+)
+async def get_user_profile_posts(
+    request: Request,
+    response: Response,
+    user_id: str,
+    post_type: str,
+    limit: int = 10,
+    offset: int = 0,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        
+        user: MemberProfileCurr = request.user
+        
+        get_user = await db.get(MemberProfileCurr, user_id)
+        
+        user_posts = await get_user_posts_details_by_user_id(db, user_id, post_type, limit, offset)
+        
+        res_data = []
+        
+        if user_posts:
+            
+            post_curr = PostStatusCurr(
+                is_anonymous = False
+            )
+            
+            posts_list = [(post[0], post_curr, get_user.image, get_user.alias) for post in user_posts]
+            
+            res_data = await convert_all_post_list_for_response(db, posts_list)
+        
+        return {
+            "message": "success",
+            "data": res_data
         }
         
     except Exception as exc:

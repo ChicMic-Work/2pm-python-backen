@@ -12,6 +12,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
+from crud.c_posts_list import get_post_tags_list
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -75,13 +76,7 @@ async def create_blog_post(
             
             msg = "Post created"
             
-            tags = []
-            if post.tag1:
-                tags.append(post.tag1)
-            if post.tag2:
-                tags.append(post.tag2)
-            if post.tag3:
-                tags.append(post.tag3)
+            tags = get_post_tags_list(post)
             
             
             member = {
@@ -180,13 +175,7 @@ async def create_question_post(
                 
             msg = "Post created"
             
-            tags = []
-            if post.tag1:
-                tags.append(post.tag1)
-            if post.tag2:
-                tags.append(post.tag2)
-            if post.tag3:
-                tags.append(post.tag3)
+            tags = get_post_tags_list(post)
             
             member = {
                 "image": user.image,

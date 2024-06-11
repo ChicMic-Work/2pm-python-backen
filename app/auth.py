@@ -290,3 +290,9 @@ async def user_logged_out(
             return {
                 "message": str(exc)
             }
+            
+            
+# @router.post(
+#     "/logout/",
+# )
+# as

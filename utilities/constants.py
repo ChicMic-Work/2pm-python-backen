@@ -36,11 +36,13 @@ access_token_expire = timedelta(days=30)
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
-    '/profile/choices/', '/auth/logout/',
+    '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/posts/users/',
+    '/profile/follow/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
     '/posts/take/poll/', '/posts/reveal/poll/',
+    '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/',
 ]
 
 def current_datetime():
@@ -61,6 +63,8 @@ class AddType:
 
     Insert = 'I'
     Update = 'U'
+    Add    = 'A'
+    Delete = 'D'
 
 
 class ContentType:

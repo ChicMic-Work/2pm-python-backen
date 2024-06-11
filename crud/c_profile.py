@@ -1,21 +1,27 @@
-from sqlalchemy import select, func
+from sqlalchemy import select, func, desc
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 from uuid_extensions import uuid7
+from crud.c_posts_list import get_post_tags_list
 from database.models import (
     Languages,
     InterestAreas,
     MemberProfileCurr, MemberProfileHist,
     AliasHist,
+    PollQues,
+    Post,
+    PostStatusCurr,
 )
 from schemas import s_auth, s_choices
 
 from typing import List
 
+from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse
 from utilities.constants import (
-    AddType
+    AddType,
+    PostType
 )
 
 from fastapi import HTTPException
@@ -75,7 +81,7 @@ async def get_searched_users(
 
     query = (
         select(MemberProfileCurr.alias, MemberProfileCurr.id, MemberProfileCurr.image, MemberProfileCurr.bio)
-        .where(MemberProfileCurr.alias.like(f"%{name}%"))
+        .where(MemberProfileCurr.alias.ilike(f"%{name}%"))
         .limit(limit)
         .offset(offset)
     )
@@ -84,3 +90,51 @@ async def get_searched_users(
     users = results.fetchall()
 
     return users
+
+
+async def get_user_profile_details_by_id(
+    db: AsyncSession,
+    user_id: UUID
+):
+
+    query = (
+        select(MemberProfileCurr)
+        .where(MemberProfileCurr.id == user_id)
+    )
+
+    results = await db.execute(query)
+    user = results.scalar()
+    
+    if not user:
+        raise Exception("User not found")
+
+    return user
+
+
+async def get_user_posts_details_by_user_id(
+    db: AsyncSession,
+    user_id: UUID,
+    post_type: str,
+    limit: int,
+    offset: int
+):
+
+    query = (
+        select(Post)
+        .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+        .where(
+            Post.member_id == user_id, 
+            Post.type == post_type,
+            PostStatusCurr.is_deleted == False,
+            PostStatusCurr.is_blocked == False,
+            PostStatusCurr.is_anonymous == False
+        )
+        .order_by(desc(Post.post_at))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    results = await db.execute(query)
+    posts = results.fetchall()
+    
+    return posts

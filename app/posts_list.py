@@ -5,6 +5,7 @@ from fastapi import (
     Request, UploadFile,
     File, Response
 )
+from sqlalchemy import select
 from starlette import status
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +14,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_list import get_CD_answers, get_HOP_polls, get_MP_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_searched_posts
+from crud.c_posts_list import convert_all_post_list_for_response, get_cd_answers, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_posts, get_searched_posts
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -193,12 +194,13 @@ async def get_member_questions(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
-    offset: int = 0
+    offset: int = 0,
+    type: str = "popular"
 ):
     try:
 
         user: MemberProfileCurr = request.user
-        questions = await get_post_questions_list(db, limit, offset)
+        questions = await get_post_questions_list(db, user.id, limit, offset)
         
         res_data = []
         
@@ -266,6 +268,22 @@ async def get_member_question(
                 post_at= ans[0].post_at 
             ))
         
+        tags = get_post_tags_list(post[0])
+        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
+        
+        post = PostBlogQuesResponse(
+            post_id = str(post[0].id),
+            member= member,
+            
+            type= post[0].type,
+            title= post[0].title,
+            body= post[0].body,
+            tags=tags,
+            interest_area_id= post[0].interest_id,
+            language_id= post[0].lang_id,
+            post_at= post[0].post_at
+        )
+        
         # member = {
         #     "image": post[2],
         #     "alias": post[3],
@@ -291,7 +309,7 @@ async def get_member_question(
         
         return {
             "message": "success",
-            "data": {"ans_list": ans_list}
+            "data": {"ans_list": ans_list, "post": post}
         }
         
     except Exception as exc:
@@ -316,7 +334,7 @@ async def get_member_polls(
     try:
 
         user: MemberProfileCurr = request.user
-        polls = await get_post_polls_list(db, limit, offset)
+        polls = await get_post_polls_list(db, user.id, limit, offset)
         
         res_data = []
         
@@ -422,7 +440,7 @@ async def get_member_poll(
         
         
 @router.get(
-    "/HOP/"
+    "/hop/"
 )
 async def hot_off_press(
     request: Request,
@@ -430,77 +448,19 @@ async def hot_off_press(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
-    offset: int = 0
+    offset: int = 0,
+    sort_type: str = "newest"
 ):
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_HOP_polls(db, limit, offset)
+        posts = await get_hop_posts(db, limit, offset, sort_type)
 
-        res_posts = []
-        
-        for post in posts:
-            
-            member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
-
-            if post[0].type == PostType.Question or post[0].type == PostType.Blog:
-
-                tags = get_post_tags_list(post[0])
-
-                res_posts.append(PostBlogQuesResponse(
-                    post_id = str(post[0].id),
-                    member= member,
-
-                    title= post[0].title,
-                    body= post[0].body,
-                    type= post[0].type,
-
-                    interest_area_id= post[0].interest_id,
-                    language_id= post[0].lang_id,
-
-                    post_at= post[0].post_at,
-                    tags= tags
-                ))
-            elif post[0].type == PostType.Answer:
-
-                res_posts.append(PostAnsResponse(
-                    post_id = str(post[0].id),
-                    member= member,
-                    
-                    type= post[0].type,
-                    
-                    title= post[0].title,
-                    body= post[0].body,
-                    
-                    post_ques_id=str(post[0].post_ques_id),
-                    is_for_daily= False,
-                    
-                    post_at= post[0].post_at
-                ))
-
-            elif post[0].type == PostType.Poll:
-
-                tags = get_post_tags_list(post[0])
-
-                res_posts.append(PostPollResponse(
-                    post_id = str(post[0].id),
-                    member= member,
-                    
-                    type= post[0].type,
-                    title= post[0].title,
-                    body= post[0].body,
-                    
-                    tags= tags,
-                    interest_area_id= post[0].interest_id,
-                    language_id= post[0].lang_id,
-                    
-                    post_at= post[0].post_at
-                ))
-
+        res_posts = await convert_all_post_list_for_response(db, posts)
 
         return {
             "message": "success",
-            "data": res_posts.reverse()
+            "data": res_posts
         }
                 
 
@@ -513,7 +473,7 @@ async def hot_off_press(
     
 
 @router.get(
-    "/CD/"
+    "/cd/"
 )
 async def club_daily_answers(
     request: Request,
@@ -526,7 +486,7 @@ async def club_daily_answers(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_CD_answers(db, limit, offset)
+        posts = await get_cd_answers(db, limit, offset)
         res_posts = []
 
         for post in posts:
@@ -562,12 +522,12 @@ async def club_daily_answers(
     
 
 @router.get(
-    "/MP/"
+    "/mp/"
 )
 async def most_popular_posts(
     request: Request,
     response: Response,
-    # Auth_token = Header(title=AuthTokenHeaderKey),
+    Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
     offset: int = 0,
@@ -576,67 +536,12 @@ async def most_popular_posts(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_MP_posts(db, limit, offset, interest)
+        posts = await get_mp_posts(db, limit, offset, interest)
 
         res_posts = []
         
-        for post in posts:
-            
-            member = get_member_dict_for_post_detail(post[2], image=post[3], alias= post[4])
-
-            if post[1].type == PostType.Question or post[1].type == PostType.Blog:
-
-                tags = get_post_tags_list(post[1])
-
-                res_posts.append(PostBlogQuesResponse(
-                    post_id = str(post[1].id),
-                    member= member,
-
-                    title= post[1].title,
-                    body= post[1].body,
-                    type= post[1].type,
-
-                    interest_area_id= post[1].interest_id,
-                    language_id= post[1].lang_id,
-
-                    post_at= post[1].post_at,
-                    tags= tags
-                ))
-            elif post[1].type == PostType.Answer:
-
-                res_posts.append(PostAnsResponse(
-                    post_id = str(post[1].id),
-                    member= member,
-                    
-                    type= post[1].type,
-                    
-                    title= post[1].title,
-                    body= post[1].body,
-                    
-                    post_ques_id=str(post[1].post_ques_id),
-                    is_for_daily= False,
-                    
-                    post_at= post[1].post_at
-                ))
-
-            elif post[1].type == PostType.Poll:
-
-                tags = get_post_tags_list(post[1])
-
-                res_posts.append(PostPollResponse(
-                    post_id = str(post[1].id),
-                    member= member,
-                    
-                    type= post[1].type,
-                    title= post[1].title,
-                    body= post[1].body,
-                    
-                    tags= tags,
-                    interest_area_id= post[1].interest_id,
-                    language_id= post[1].lang_id,
-                    
-                    post_at= post[1].post_at
-                ))
+        if posts:
+            res_posts = await convert_all_post_list_for_response(db, posts, n=1)
 
         return {
             "message": "success",
@@ -648,6 +553,7 @@ async def most_popular_posts(
             "message": str(exc),
             "data": None
         }
+
 
 @router.get(
     "/search/"
@@ -664,13 +570,56 @@ async def search_posts(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_searched_posts(db, search, limit, offset)
+        if not search.strip():
+            raise Exception("Search string cannot be empty")
+        
+        posts = await get_searched_posts(db, search.strip(), limit, offset)
 
         res_posts = []
-    
+        if posts:
+            res_posts = await convert_all_post_list_for_response(db, posts)
+
+        return {
+            "message": "success",
+            "data": res_posts
+        }
+        
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
             "message": str(exc),
             "data": None
+        }
+        
+
+@router.get(
+    "/pr/"
+)
+async def pure_random_posts(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        posts = await get_random_posts(db, 70, 5, limit)
+
+        res_posts = []
+        if posts:
+            res_posts = await convert_all_post_list_for_response(db, posts)
+
+        return {
+            "message": "success",
+            "data": res_posts
+        }
+
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            
         }

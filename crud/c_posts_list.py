@@ -1,5 +1,6 @@
-from sqlalchemy import select, asc, delete, desc, func, and_, or_
-from sqlalchemy.orm import Session, joinedload
+import random
+from sqlalchemy import select, asc, delete, desc, func, and_, or_, text
+from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import operators
 
@@ -8,6 +9,7 @@ from uuid_extensions import uuid7
 
 from typing import List, Tuple
 
+from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse, PostPollResponse
 from utilities.constants import (
     AddType, ChoicesType, PaginationLimit, PostType, current_datetime
 )
@@ -15,7 +17,7 @@ from utilities.constants import (
 from datetime import datetime, timedelta
 
 from database.models import (
-    DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollMemReveal, PollQues, Post,
+    DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
     PostDraft, PostStatusCurr, PostStatusHist, ViewPostScore
 )
 from uuid_extensions import uuid7
@@ -112,9 +114,18 @@ async def get_poll_drafts(
 
 async def get_post_questions_list(
     db: AsyncSession,
+    member_id: UUID,
     limit: int,
     offset: int
 ) -> List[Tuple[Post, PostStatusCurr, str, str]]:
+    
+    answered_post_ids_query = (
+        select(Post.assc_post_id)
+        .where(
+            Post.member_id == member_id,
+            Post.type == PostType.Answer,
+        )
+    ).alias("answered_posts")
     
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
@@ -122,6 +133,7 @@ async def get_post_questions_list(
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
             Post.type == PostType.Question,
+            Post.id.notin_(answered_post_ids_query),
             PostStatusCurr.is_blocked == False,
             PostStatusCurr.is_deleted == False
         )
@@ -188,11 +200,12 @@ async def get_post_question(
     post_id: UUID,
     limit: int ,
     offset: int
-) -> Tuple[Post, List[Tuple[Post, PostStatusCurr, str, str]]]:
+) -> Tuple[Tuple[Post, PostStatusCurr, str, str], List[Tuple[Post, PostStatusCurr, str, str]]]:
     
     query = (
-        select(Post, PostStatusCurr)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+        .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(Post.id == post_id)
     )
     results = await db.execute(query)
@@ -226,15 +239,33 @@ async def get_post_question(
 ## TAKE A POLL ##
 async def get_post_polls_list(
     db: AsyncSession,
+    member_id: UUID,
     limit: int,
     offset: int
 ):
+    taken_post_ids_query = (
+        select(PollMemTake.post_id)
+        .where(
+            PollMemTake.member_id == member_id,
+        )
+    ).alias("poll_taken")
+    
+    revealed_post_ids_query = (
+        select(PollMemReveal.post_id)
+        .where(
+            PollMemReveal.member_id == member_id,
+        )
+    ).alias("poll_revealed")
+    
+    
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
             Post.type == PostType.Poll,
+            Post.id.notin_(taken_post_ids_query),
+            Post.id.notin_(revealed_post_ids_query),
             PostStatusCurr.is_blocked == False,
             PostStatusCurr.is_deleted == False
         )
@@ -318,12 +349,14 @@ async def get_member_poll_taken(
     return poll_selected
 
 
-async def get_HOP_polls(
+#HOT OFF PRESS
+async def get_hop_posts(
     db: AsyncSession,
     limit: int,
-    offset: int
-):
-    query = (
+    offset: int,
+    sort_type: str
+) -> List:
+    base_query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
@@ -332,18 +365,24 @@ async def get_HOP_polls(
             PostStatusCurr.is_blocked == False,
             PostStatusCurr.is_deleted == False
         )
-        .order_by(desc(Post.post_at))
         .limit(limit)
         .offset(offset)
     )
-    results = await db.execute(query)
     
-    posts = results.fetchall()
+    if sort_type == "newest":
+        query = base_query.order_by(desc(Post.post_at))
+    elif sort_type == "random":
+        query = base_query.order_by(func.random())
+    else:
+        raise ValueError("Invalid sort_type. Must be 'newest' or 'random'.")
 
+    results = await db.execute(query)
+    posts = results.fetchall()
     return posts
 
 
-async def get_CD_answers(
+#CLUB DAILY ANSWERS
+async def get_cd_answers(
     db: AsyncSession,
     limit: int,
     offset: int
@@ -368,7 +407,8 @@ async def get_CD_answers(
     return answers
 
 
-async def get_MP_posts(
+#MOST POPULAR
+async def get_mp_posts(
     db: AsyncSession,
     limit: int,
     offset: int,
@@ -405,6 +445,7 @@ async def get_MP_posts(
     return post_scores
 
 
+#SEARCH POSTS
 async def get_searched_posts(
     db: AsyncSession,
     search: str,
@@ -414,8 +455,38 @@ async def get_searched_posts(
     
     pgroonga_match_op = operators.custom_op('&@')
 
+    raw_query = text("""
+    SELECT 
+    pst.post_posted.*, 
+    post_status_curr.*, 
+    mbr_profile_curr.df_img, 
+    mbr_profile_curr.df_alias
+    FROM 
+        pst.post_posted
+    JOIN 
+        pst.post_status_curr 
+        ON post_posted.post_id = post_status_curr.post_id
+    JOIN 
+        mbr.mbr_profile_curr 
+        ON post_posted.mbr_id = mbr_profile_curr.mbr_id
+    WHERE 
+        (post_posted.tag1 &@ :search
+        OR post_posted.tag2 &@ :search
+        OR post_posted.tag3 &@ :search
+        OR post_posted.post_title &@ :search
+        OR post_posted.post_detail &@ :search)
+        AND post_status_curr.is_blocked = FALSE
+        AND post_status_curr.is_deleted = FALSE
+    ORDER BY 
+        post_posted.post_at DESC
+    LIMIT :limit
+    OFFSET :offset;
+    """)
+
     query = (
-            select(Post)
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+            .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+            .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
             .where(
                 or_(
                     Post.tag1.op('&@')(search),
@@ -423,11 +494,163 @@ async def get_searched_posts(
                     Post.tag3.op('&@')(search),
                     Post.title.op('&@')(search),
                     Post.body.op('&@')(search),
-                )
+                ),
+                PostStatusCurr.is_blocked == False,
+                PostStatusCurr.is_deleted == False
             )
+            .order_by(desc(Post.post_at))
             .limit(limit)
             .offset(offset)
         )
 
     result = await db.execute(query)
+    # result = await db.execute(raw_query, {"search": search, "limit": limit, "offset": offset})
     posts = result.fetchall()
+    
+    return posts
+
+
+#GET RANDOM
+async def get_random_sample_posts(session: AsyncSession, sample_size: int) -> List[Post]:
+    
+    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size})")
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+async def get_random_posts_with_details(session: AsyncSession, sample_size: int) -> List:
+    
+    random_sample_posts = await get_random_sample_posts(session, sample_size)
+
+    if not random_sample_posts:
+        return []
+
+    
+    PostStatusCurrAlias = aliased(PostStatusCurr)
+    MemberProfileCurrAlias = aliased(MemberProfileCurr)
+    
+    stmt = (
+        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
+        .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
+        .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
+        .where(
+            Post.id.in_(random_sample_posts),
+            PostStatusCurrAlias.is_blocked == False,
+            PostStatusCurrAlias.is_deleted == False
+        )
+    )
+
+    result = await session.execute(stmt)
+    return result.all()
+
+async def get_random_posts(
+    session: AsyncSession, 
+    batch_size: int, 
+    batch_count: int, 
+    final_limit: int
+) -> List:
+    
+    combined_posts = []
+    
+    for _ in range(batch_count):
+        random_posts = await get_random_posts_with_details(session, batch_size)
+        combined_posts.extend(random_posts)
+    
+    random.shuffle(combined_posts)
+    
+    return set(combined_posts[:final_limit])
+
+
+#POSTS LIST CONVERTER
+async def convert_blog_ques_post_for_response(post, member, tags):
+    return PostBlogQuesResponse(
+        post_id = str(post.id),
+        member= member,
+
+        title= post.title,
+        body= post.body,
+        type= post.type,
+
+        interest_area_id= post.interest_id,
+        language_id= post.lang_id,
+
+        post_at= post.post_at,
+        tags= tags,
+    )
+
+async def convert_normal_answer_post_for_response(db: AsyncSession, post, member):
+    
+    
+    query = (
+        select(Post.title)
+        .where(Post.id == post.assc_post_id)
+    )
+    
+    results = await db.execute(query)
+    ques_title = results.scalar()
+    
+    return PostAnsResponse(
+        post_id = str(post.id),
+        member= member,
+
+        type= post.type,
+
+        title= ques_title,
+        body= post.body,
+
+        post_ques_id=str(post.assc_post_id),
+        is_for_daily= False,
+
+        post_at= post.post_at
+    )
+    
+async def convert_poll_post_for_response(db:AsyncSession ,post, member, tags):
+    
+    poll_ques = (await db.execute(select(PollQues).where(PollQues.post_id == post.id, PollQues.qstn_seq_num == 1, PollQues.ans_seq_letter == "A"))).scalar()
+    post.body = poll_ques.ques_text
+    
+    return PostBlogQuesResponse(
+        post_id = str(post.id),
+        member= member,
+        
+        type= post.type,
+        title= post.title,
+        body= post.body,
+        
+        tags= tags,
+        interest_area_id= post.interest_id,
+        language_id= post.lang_id,
+        post_at= post.post_at
+    )
+
+async def convert_all_post_list_for_response(db, posts, n=0):
+    res_posts = []
+    
+    for post_tuple in posts:
+        
+        if n == 0:
+            post, post_status, image, alias = post_tuple
+        elif n == 1:
+            _ , post, post_status, image, alias = post_tuple
+            
+        member = get_member_dict_for_post_detail(post_status, image=image, alias= alias)
+
+        if post.type == PostType.Question or post.type == PostType.Blog:
+
+            tags = get_post_tags_list(post)
+
+            res_posts.append(await convert_blog_ques_post_for_response(post, member, tags))
+            
+        elif post.type == PostType.Answer:
+
+            res_posts.append(await convert_normal_answer_post_for_response(db, post, member))
+
+        elif post.type == PostType.Poll:
+
+            tags = get_post_tags_list(post)
+
+            res_posts.append(await convert_poll_post_for_response(db, post, member, tags))  
+            
+
+    return res_posts
+
+
