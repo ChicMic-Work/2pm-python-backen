@@ -81,6 +81,7 @@ class MemberRegistration(Base):
 
 Index('ix_alias_regs_unique', MemberRegistration.alias, unique=True, postgresql_where=MemberRegistration.alias.isnot(None))
 Index('ix_google_id_regs_unique', MemberRegistration.google_id, unique=True, postgresql_where=MemberRegistration.google_id.isnot(None))
+Index('ix_apple_id_regs_unique', MemberRegistration.apple_id, unique=True, postgresql_where=MemberRegistration.apple_id.isnot(None))
 
 
 class MemberProfileCurr(Base):
@@ -95,7 +96,7 @@ class MemberProfileCurr(Base):
     google_email    = Column(MemberProfileKeys.google_email, String(TableCharLimit._330), nullable= True)
     join_at         = Column(MemberProfileKeys.join_at, DateTime(timezone= True), default= func.now(), nullable= False)
     
-    alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255), unique=True)
+    alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255))
     alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255))
     
     bio             = Column(MemberProfileKeys.bio, String(TableCharLimit._255), nullable= True)
@@ -106,8 +107,8 @@ class MemberProfileCurr(Base):
     
     update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True))
     
-Index('ix_alias_curr_unique', MemberProfileCurr.alias, unique=True, postgresql_where=MemberProfileCurr.alias.isnot(None))
 Index('ix_google_id_curr_unique', MemberProfileCurr.google_id, unique=True, postgresql_where=MemberProfileCurr.google_id.isnot(None))
+Index('ix_apple_id_curr_unique', MemberProfileCurr.apple_id, unique=True, postgresql_where=MemberProfileCurr.apple_id.isnot(None))
 
 
 
@@ -1178,7 +1179,7 @@ class FeedbackLog(Base):
     note_at       = Column(FeedbackKeys.note_at, DateTime(True))
     
     is_resolved   = Column(FeedbackKeys.is_resolved, Boolean, default= 0)
-    
+ 
 class ViewPostScore(Base):
     
     __tablename__   = ViewPostScoreKeys.tablename
