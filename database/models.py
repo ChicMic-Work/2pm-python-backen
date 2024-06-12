@@ -1,5 +1,5 @@
 
-from sqlalchemy import create_engine, Engine
+from sqlalchemy import Computed, create_engine, Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, backref
 
@@ -38,8 +38,8 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_test_sch"
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test_sch"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1_test"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
@@ -54,7 +54,7 @@ SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=Fals
 
 Base = declarative_base()
 
-default_uuid7 = text("uuid_generate_v7()")
+default_uuid7 = text("mbr.uuid_generate_v7()")
 # default_uuid7 = text("uuid_generate_v4()")
 
 class MemberRegistration(Base):
@@ -617,26 +617,22 @@ class Post(Base):
     
     title         = Column(PostKeys.title, String(TableCharLimit._255), nullable= False)
     body          = Column(PostKeys.body, Text, nullable= False)
-    
+
     tag1          = Column(PostKeys.tag1, String(TableCharLimit._255), nullable= True)
     tag2          = Column(PostKeys.tag2, String(TableCharLimit._255), nullable= True)
     tag3          = Column(PostKeys.tag3, String(TableCharLimit._255), nullable= True)
-    
-    tag1_id      = Column(PostKeys.tag1_id, BigInteger, nullable= True)
-    tag2_id      = Column(PostKeys.tag2_id, BigInteger, nullable= True)
-    tag3_id      = Column(PostKeys.tag3_id, BigInteger, nullable= True)
-    
-    # tag1_std = Column(PostKeys.tag1_std,String(TableCharLimit._255),nullable=False)
-    # tag2_std = Column(PostKeys.tag2_std,String(TableCharLimit._255),nullable=True)
-    # tag3_std = Column(PostKeys.tag3_std,String(TableCharLimit._255),nullable=True)
-    
+
+    tag1_std = Column(PostKeys.tag1_std,String(TableCharLimit._255),Computed("mbr.normalize_tag(tag1)", persisted = True), nullable=False)
+    tag2_std = Column(PostKeys.tag2_std,String(TableCharLimit._255),Computed("mbr.normalize_tag(tag2)", persisted=True), nullable=True)
+    tag3_std = Column(PostKeys.tag3_std,String(TableCharLimit._255),Computed("mbr.normalize_tag(tag3)", persisted=True), nullable=True)
+
     post_at       = Column(PostKeys.posted_at, DateTime(True), default= func.now())
 
 Index('ix_post_assc_post_id', Post.assc_post_id, postgresql_where=Post.assc_post_id.isnot(None))
 
-Index('idx_post_posted_tag1', Post.tag1, postgresql_using='pgroonga')
-Index('idx_post_posted_tag2', Post.tag2, postgresql_using='pgroonga')
-Index('idx_post_posted_tag3', Post.tag3, postgresql_using='pgroonga')
+Index('idx_post_posted_tag1_std', Post.tag1_std, postgresql_using='pgroonga')
+Index('idx_post_posted_tag2', Post.tag2_std, postgresql_using='pgroonga')
+Index('idx_post_posted_tag3', Post.tag3_std, postgresql_using='pgroonga')
 Index('idx_post_posted_title', Post.title, postgresql_using='pgroonga')
 Index('idx_post_posted_body', Post.body, postgresql_using='pgroonga')
 
@@ -1183,7 +1179,8 @@ class FeedbackLog(Base):
     note_at       = Column(FeedbackKeys.note_at, DateTime(True))
     
     is_resolved   = Column(FeedbackKeys.is_resolved, Boolean, default= 0)
- 
+
+"""
 class ViewPostScore(Base):
     
     __tablename__   = ViewPostScoreKeys.tablename
@@ -1208,7 +1205,7 @@ class ViewPostScore(Base):
 
 Index('idx_v_post_score_post_id_answ0', ViewPostScore.post_id, postgresql_where= ViewPostScore.type.is_not('A'))
 
-"""
+
 class ViewDailyCmntLikeCnt(Base):
     
     __tablename__ = ViewDailyCmntLikeCntKeys.table_name
