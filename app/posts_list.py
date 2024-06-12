@@ -15,6 +15,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
+from crud.c_posts_actions import check_if_user_took_poll
 from crud.c_posts_list import convert_all_post_list_for_response, get_cd_answers, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
 from dependencies import get_db
 
@@ -360,10 +361,16 @@ async def get_member_poll(
         user: MemberProfileCurr = request.user
         
         post, poll_items = await get_post_poll(db, post_id)
-        
+
+        try:
+            check_if_user_took_poll(db, user.id, post_id)
+        except:
+            pass
+
         member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
         
         tags = get_post_tags_list(post[0])
+
         
         poll_data = PostPollResponse(
             post_id = str(post[0].id),
