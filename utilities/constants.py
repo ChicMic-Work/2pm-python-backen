@@ -93,6 +93,7 @@ class TableCharLimit:
 class PaginationLimit:
 
     random = 30
+    most_popular = 30
 
 class SocialType:
     Google = 0
@@ -120,7 +121,9 @@ class PostType:
     Poll = "P"
     
     types_list = ['B', 'Q', 'A', 'P']
-    
+
+PGROONGA_OPERATOR = 'OPERATOR(mbr.&@)'
+
 ALIAS_VALID     = "Valid"
 ALIAS_INVALID   = "Invalid"
 ALIAS_EXISTS    = "Nickname is already in use"
@@ -130,8 +133,73 @@ ALIAS_ATLEAST = "Nickname must contain at least one letter"
 ALIAS_STARTS = "Nickname must start with a letter"
 ALIAS_ATMOST = "Nickname must not exceed 20 characters"
 BIO_ATMOST = "Bio must not exceed 150 characters"
-IMAGE_FAIL = "Failed to save image"
 
+IMAGE_FAIL = "Failed to save image"
+USER_NOT_FOUND = "User not found"
+USER_LOGGED_OUT = "User logged out"
+SESSION_NOT_EXIST = "Session does not exist"
+INVALID_SOCIAL_TOKEN = "Invalid Social Token"
+
+POST_CREATED = "Post created"
+DRAFT_CREATED = "Draft created"
+
+DAILY_QUES_NOT_FOUND = "Daily question not found"
+QUES_NOT_FOUND = "Question not found"
+DRAFT_NOT_FOUND = "Draft not found"
+
+INVALID_POST_TYPE = "Invalid post type"
+INVALID_SEARCH_QUERY = "Invalid search query"
+EMPTY_SEARCH_STRING = "Search string cannot be empty"
+INVALID_SORT_TYPE = "Invalid sort_type. Must be 'newest' or 'random'."
+
+DUPLICATE_POLL_ITEM_IDS = "Duplicate poll item ids"
+POLL_ITEM_NOT_FOUND = "Poll item not found"
+POST_NOT_FOUND = "Post not found"
+POST_DELETED = "Post is deleted"
+POST_BLOCKED = "Post is blocked"
+INVALID_POLL_ITEM = "One or more poll items are invalid or do not belong to the specified post"
+POLL_ALREADY_TAKEN = "User already took poll"
+POLL_ALREADY_REVEALED = "User already revealed poll"
+
+UNFOLLOWED = "Unfollowed"
+FOLLOWED = "Followed"
+
+
+
+class RandomSample:
+    
+    _10 = 10
+    _5  = 5
+
+
+class ResponseKeys:
+    STATUS = "status"
+    MESSAGE = "message"
+    DATA = "data"
+    DRAFT_ID = "draft_id"
+    
+class ResponseMsg:
+    
+    SUCCESS = "success"
+    FAIL = "fail"
+    ERROR = "error"
+    CREATED = "created"
+
+class PostListType:
+    
+    random = "random"
+    popular = "popular"
+    search = "search"
+    invites = "invites"
+
+class HOPSortType:
+    
+    newest = "newest"
+    random = "random"
+
+class RedisKeys:
+
+    revoked_tokens = "revoked_tokens"
 """
 TIMEZONE = 'Asia/Kolkata' pytz.timezone(TIMEZONE)
 """

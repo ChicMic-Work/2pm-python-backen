@@ -20,6 +20,7 @@ from typing import List
 
 from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse
 from utilities.constants import (
+    USER_NOT_FOUND,
     AddType,
     PostType
 )
@@ -106,7 +107,7 @@ async def get_user_profile_details_by_id(
     user = results.scalar()
     
     if not user:
-        raise Exception("User not found")
+        raise Exception(USER_NOT_FOUND)
 
     return user
 

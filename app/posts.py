@@ -9,10 +9,11 @@ from starlette import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crud.c_posts import (
-    create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
+    create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, 
+    create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_list import get_post_tags_list
+from crud.c_posts_list import get_member_dict_for_post_detail, get_post_tags_list
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -20,7 +21,8 @@ from crud.c_auth import (
 )
 
 from utilities.constants import (
-    AuthTokenHeaderKey, PostType
+    DAILY_QUES_NOT_FOUND, DRAFT_CREATED, POST_CREATED, 
+    QUES_NOT_FOUND, AuthTokenHeaderKey, PostType, ResponseKeys
 )
 
 from schemas.s_posts import (
@@ -74,19 +76,11 @@ async def create_blog_post(
             if post_request.draft_id:
                 await db.execute(del_query)
             
-            msg = "Post created"
+            msg = POST_CREATED
             
             tags = get_post_tags_list(post)
             
-            
-            member = {
-                "image": user.image,
-                "alias": user.alias,
-                "is_anonymous": post_curr.is_anonymous
-            }
-            if post_curr.is_anonymous:
-                member["alias"] = "Anonymous"
-                member["image"] = None
+            member = get_member_dict_for_post_detail(post_curr, user)
 
             res_data = PostBlogQuesResponse(
                 post_id = str(post.id),
@@ -104,15 +98,15 @@ async def create_blog_post(
             )
             
             return {
-                "message": msg,
-                "data": res_data
+                ResponseKeys.STATUS : msg,
+                ResponseKeys.DATA: res_data
             }
         
         except Exception as exc:
             await db.rollback()
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
-                "message": str(exc)
+                ResponseKeys.MESSAGE: str(exc)
             }
 
 
@@ -136,14 +130,14 @@ async def create_draft_blog_post(
         await db.refresh(draft)
 
         return {
-            "message": "Draft created",
-            "draft_id": str(draft.id)
+            ResponseKeys.STATUS: DRAFT_CREATED,
+            ResponseKeys.DRAFT_ID: str(draft.id)
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }
 
 
@@ -151,7 +145,7 @@ async def create_draft_blog_post(
 #QUESTION
 @router.post(
     "/create/question/"
-    )
+)
 async def create_question_post(
     request: Request,
     response: Response,
@@ -173,19 +167,9 @@ async def create_question_post(
             if post_request.draft_id:
                 await db.execute(del_query)
                 
-            msg = "Post created"
-            
             tags = get_post_tags_list(post)
             
-            member = {
-                "image": user.image,
-                "alias": user.alias,
-                "is_anonymous": post_curr.is_anonymous
-            }
-            
-            if post_curr.is_anonymous:
-                member["alias"] = "Anonymous"
-                member["image"] = None
+            member = get_member_dict_for_post_detail(post_curr, user)
 
             res_data = PostBlogQuesResponse(
                 post_id = str(post.id),
@@ -203,15 +187,15 @@ async def create_question_post(
             )
             
             return {
-                "message": msg,
-                "data": res_data
+                ResponseKeys.MESSAGE: POST_CREATED,
+                ResponseKeys.DATA: res_data
             }
         
         except Exception as exc:
             await db.rollback()
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
-                "message": str(exc)
+                ResponseKeys.MESSAGE: str(exc)
             }
 
 
@@ -235,14 +219,14 @@ async def create_draft_question_post(
         await db.refresh(draft)
 
         return {
-            "message": "Draft created",
-            "draft_id": str(draft.id)
+            ResponseKeys.MESSAGE: DRAFT_CREATED,
+            ResponseKeys.DRAFT_ID: str(draft.id)
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }
 
 
@@ -265,14 +249,14 @@ async def create_answer_post(
 
             ques  = await db.get(DailyQues, post_request.post_ques_id)
             if not ques and post_request.is_for_daily:
-                raise Exception("Daily question not found")
+                raise Exception(DAILY_QUES_NOT_FOUND)
             if ques and not post_request.is_for_daily:
                 post_request.is_for_daily = True
                 
             if not post_request.is_for_daily:
                 ques = await db.get(Post, post_request.post_ques_id)
                 if not ques:
-                    raise Exception("Question not found")
+                    raise Exception(QUES_NOT_FOUND)
             
             del_query, post, post_curr, post_hist  = await create_ans_post_crud(db, user.id, post_request.draft_id, post_request, ques)
 
@@ -285,20 +269,10 @@ async def create_answer_post(
 
             if post_request.draft_id:
                 await db.execute(del_query)
-                
-            msg = "Post created"
             
             post_type = PostType.Answer
             
-            member= {
-                "image": user.image,
-                "alias": user.alias,
-                "is_anonymous": post_curr.is_anonymous
-            }
-            
-            if post_curr.is_anonymous:
-                member["alias"] = "Anonymous"
-                member["image"] = None
+            member = get_member_dict_for_post_detail(post_curr, user)
             
             req_data = PostAnsResponse(
                 post_id = str(post.id),
@@ -316,15 +290,15 @@ async def create_answer_post(
             )
             
             return {
-                "message": msg,
-                "data": req_data
+                ResponseKeys.MESSAGE: POST_CREATED,
+                ResponseKeys.DATA: req_data
             }
         
         except Exception as exc:
             await db.rollback()
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
-                "message": str(exc)
+                ResponseKeys.MESSAGE: str(exc)
             }
 
 
@@ -343,14 +317,14 @@ async def create_draft_answer_post(
 
         ques  = await db.get(DailyQues, draft_request.post_ques_id)
         if not ques and draft_request.is_for_daily:
-            raise Exception("Daily question not found")
+            raise Exception(DAILY_QUES_NOT_FOUND)
         if ques and not draft_request.is_for_daily:
             draft_request.is_for_daily = True
 
         if not draft_request.is_for_daily:
             ques = await db.get(Post, draft_request.post_ques_id)
             if not ques:
-                raise Exception("Question not found")
+                raise Exception(QUES_NOT_FOUND)
         
         draft = await create_draft_ans_post_crud(db, user.id, draft_request.draft_id, draft_request, ques)
 
@@ -359,14 +333,14 @@ async def create_draft_answer_post(
         await db.refresh(draft)
 
         return {
-            "message": "Draft created",
-            "draft_id": str(draft.id)
+            ResponseKeys.MESSAGE: DRAFT_CREATED,
+            ResponseKeys.DRAFT_ID: str(draft.id)
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }
 
 
@@ -398,21 +372,10 @@ async def create_poll_post(
                     for del_query in del_queries:
                         await db.execute(del_query)
                 
-                msg = "Post created"
-                tags = []
-                if post.tag1:
-                    tags.append(post.tag1)
-                if post.tag2:
-                    tags.append(post.tag2)
-                if post.tag3:
-                    tags.append(post.tag3)
+                tags = get_post_tags_list(post)
                     
-                member = {
-                    "image": user.image,
-                    "alias": user.alias,
-                    "is_anonymous": post_curr.is_anonymous
-                }
-
+                member = get_member_dict_for_post_detail(post_curr, user)
+                
             async with db.begin_nested():
                 
                 poll = await get_poll_post_items(db, post.id)
@@ -436,15 +399,15 @@ async def create_poll_post(
                 await db.commit()
                 
             return {
-                "message": msg,
-                "data": req_data
+                ResponseKeys.MESSAGE: POST_CREATED,
+                ResponseKeys.DATA: req_data
             }
 
         except Exception as exc:
             await db.rollback()
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
-                "message": str(exc)
+                ResponseKeys.MESSAGE: str(exc)
             }
 
 
@@ -471,57 +434,14 @@ async def create_draft_poll_post(
         await db.refresh(draft)
 
         return {
-            "message": "Draft created",
-            "draft_id": str(draft.id)
+            ResponseKeys.MESSAGE: DRAFT_CREATED,
+            ResponseKeys.DRAFT_ID: str(draft.id)
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }
 
-"""
-@router.post(
-    "/create/"
-    )
-async def create_post(
-    request: Request,
-    post_request: PostCreateRequest,
-    response: Response,
-    Auth_token = Header(title=AuthTokenHeaderKey),
-    db:AsyncSession = Depends(get_db),
-):
-    try:
-        request.user
-        if post_request.type == PostType.B:
-            pass
-            # TODO: Create blog
-            # need title, body
-            
-        elif post_request.type == PostType.Q:
-            pass
-            # TODO: Create quest
-            # req: body, title
-        elif post_request.type == PostType.A:
-            pass
-            # TODO: Create answer
-            # req: asso, body
-        elif post_request.type == PostType.P:
-            pass
-            # TODO: Create Poll
-            # req: asso, title
-        else:
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return {
-                "message": f"invalid post type: {post_request.type}"
-            }
-        
-            
-    except Exception as exc:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {
-            "message": str(exc)
-        }
 
-"""

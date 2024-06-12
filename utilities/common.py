@@ -1,5 +1,14 @@
 import re
+from uuid import UUID
+from sqlalchemy import select, desc, text
+from sqlalchemy.orm import aliased
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from unidecode import unidecode
+from typing import List
+
+from database.models import MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, Post, PostStatusCurr, ViewPostScore
+from utilities.constants import PaginationLimit, PostType
 
 def unaccent(s):
     """
@@ -102,3 +111,138 @@ print(normalized_nickname)
 
 vad = unidecode('kožušček 21321 $*#^@* ä, ë, ï, ö, ü, ÿ, Ä, Ë, Ï, Ö, Ü, Ÿ, œ, Œ, æ, Æ, ø, Ø, ¿, ¡, ß, å, Å')
 """
+
+most_popular_base_query = (
+    select(ViewPostScore, Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+    .join(Post, Post.id == ViewPostScore.post_id)
+    .join(PostStatusCurr, PostStatusCurr.post_id == ViewPostScore.post_id)
+    .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+)
+
+async def get_most_popular_base_func(
+    conditions: dict = {}, 
+):
+    query = most_popular_base_query
+    for table_column, value in conditions.items():
+        table, column = table_column.split(".")
+        mapped_table = globals()[table]
+        query = query.where(getattr(mapped_table, column) == value)
+
+    return query
+
+async def get_random_sample_questions_polls(session: AsyncSession, sample_size: int, post_type: str) -> List[Post]:
+
+    stmt = text(f"""
+        SELECT * 
+        FROM pst.post_posted 
+        TABLESAMPLE SYSTEM(:sample_size) 
+        WHERE post_posted.post_type = :post_type
+    """)
+    result = await session.execute(stmt, {'sample_size': sample_size, 'post_type': post_type})
+    return result.scalars().all()
+
+async def get_random_questions_polls_with_details(
+    session: AsyncSession, 
+    sample_size: int,
+    post_type: str,
+    member_id: UUID
+) -> List:
+    
+    random_sample_posts = await get_random_sample_questions_polls(session, sample_size, post_type)
+
+    if not random_sample_posts:
+        return []
+    
+    remove_post_ids = []
+    
+    if post_type == PostType.Answer:
+        answered_post_ids_query = (
+            select(Post.assc_post_id)
+            .where(
+                Post.member_id == member_id,
+                Post.type == post_type,
+            )
+        )
+        results = await session.execute(answered_post_ids_query)
+        answered_post_ids = results.fetchall()
+        answered_post_ids = [i[0] for i in answered_post_ids]
+        
+        remove_post_ids.extend(answered_post_ids)
+        
+    elif post_type == PostType.Poll:
+        
+        taken_polls_query = (
+            select(PollMemTake.post_id)
+            .where(
+                PollMemTake.member_id == member_id,
+            )
+        )
+        
+        results = await session.execute(taken_polls_query)
+        poll_selected = results.fetchall()
+        poll_selected = [i[0] for i in poll_selected]
+        remove_post_ids.extend(poll_selected)
+        
+        reveal_polls_query = (
+            select(PollMemReveal.post_id)
+            .where(
+                PollMemReveal.member_id == member_id,
+            )
+        )
+        results = await session.execute(reveal_polls_query)
+        reveal_selected = results.fetchall()
+        reveal_selected = [i[0] for i in reveal_selected]
+        remove_post_ids.extend(reveal_selected)      
+        
+    
+    PostStatusCurrAlias = aliased(PostStatusCurr)
+    MemberProfileCurrAlias = aliased(MemberProfileCurr)
+    
+    stmt = (
+        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
+        .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
+        .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
+        .where(
+            Post.id.in_(random_sample_posts),
+            PostStatusCurrAlias.is_blocked == False,
+            PostStatusCurrAlias.is_deleted == False,
+            Post.id.notin_(remove_post_ids),
+        )
+    )
+    
+    result = await session.execute(stmt)
+    return result.all()
+
+
+
+
+async def get_random_sample_posts(session: AsyncSession, sample_size: int) -> List[Post]:
+    
+    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size})")
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+
+async def get_random_posts_with_details(session: AsyncSession, sample_size: int) -> List:
+    
+    random_sample_posts = await get_random_sample_posts(session, sample_size)
+
+    if not random_sample_posts:
+        return []
+    
+    PostStatusCurrAlias = aliased(PostStatusCurr)
+    MemberProfileCurrAlias = aliased(MemberProfileCurr)
+    
+    stmt = (
+        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
+        .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
+        .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
+        .where(
+            Post.id.in_(random_sample_posts),
+            PostStatusCurrAlias.is_blocked == False,
+            PostStatusCurrAlias.is_deleted == False
+        )
+    )
+
+    result = await session.execute(stmt)
+    return result.all()

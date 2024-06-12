@@ -8,7 +8,7 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from utilities.constants import (
-    AddType, ChoicesType, PostType
+    INVALID_POLL_ITEM, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostType
 )
 
 from database.models import (
@@ -38,7 +38,7 @@ async def check_if_poll_items_exist(
     poll_items = results.scalars().all()
     
     if len(poll_items) != len(poll_item_ids):
-        raise Exception("One or more poll items are invalid or do not belong to the specified post")
+        raise Exception(INVALID_POLL_ITEM)
 
     return poll_items
 
@@ -58,9 +58,9 @@ async def check_poll_details_before_take(
     post_curr = results.fetchone()
     
     if post_curr[0].is_deleted:
-        raise Exception("Post is deleted") 
+        raise Exception(POST_DELETED) 
     if post_curr[0].is_blocked:
-        raise Exception("Post is blocked")
+        raise Exception(POST_BLOCKED)
     
     return post_curr
 
@@ -82,7 +82,7 @@ async def check_if_user_took_poll(
     mem_take = results.fetchone()
 
     if mem_take:
-        raise Exception("User already took poll")
+        raise Exception(POLL_ALREADY_TAKEN)
     
     query = (
         select(PollMemReveal)
@@ -96,7 +96,7 @@ async def check_if_user_took_poll(
     mem_reveal = results.fetchone()
 
     if mem_reveal:
-        raise Exception("User already revealed poll")
+        raise Exception(POLL_ALREADY_REVEALED)
     
 
 async def member_create_poll_entries(
@@ -152,7 +152,7 @@ async def check_member_reveal_took_poll(
     mem_reveal = results.fetchone()
 
     if mem_reveal:
-        raise Exception("User already revealed poll")
+        raise Exception(POLL_ALREADY_REVEALED)
     
     query = (
         select(PollMemTake)
@@ -165,7 +165,7 @@ async def check_member_reveal_took_poll(
     results = await db.execute(query)
     mem_take = results.fetchone()
     if mem_take:
-        raise Exception("User already took poll")
+        raise Exception(POLL_ALREADY_TAKEN)
     
     reveal = PollMemReveal(
         post_id=post_id,

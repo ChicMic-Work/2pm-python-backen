@@ -10,8 +10,9 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse, PostPollResponse
+from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts
 from utilities.constants import (
-    AddType, ChoicesType, PaginationLimit, PostType, current_datetime
+    INVALID_SORT_TYPE, PGROONGA_OPERATOR, POST_BLOCKED, POST_DELETED, POST_NOT_FOUND, AddType, ChoicesType, HOPSortType, PaginationLimit, PostType, current_datetime
 )
 
 from datetime import datetime, timedelta
@@ -61,6 +62,21 @@ def get_member_dict_for_post_detail(
 
 
 ## DRAFTS ##
+
+async def get_user_drafted_posts(
+    db: AsyncSession,
+    mem_id: UUID,
+    post_type: str
+):
+    blogs = (await db.execute(select(PostDraft).where(PostDraft.member_id == mem_id, PostDraft.type == post_type).order_by(desc(PostDraft.save_at)))).scalars().all()
+    
+    if post_type == PostType.Poll:
+        for poll in blogs:
+            poll_ques = (await db.execute(select(PollQues).where(PollQues.post_id == poll.id, PollQues.qstn_seq_num == 1, PollQues.ans_seq_letter == "A"))).scalar()
+            poll.body = poll_ques.ques_text
+
+    return blogs
+
 #BLOG
 async def get_blog_drafts(
     db: AsyncSession,
@@ -146,53 +162,62 @@ async def get_post_questions_list(
     
     return questions
 
-
-"""
-async def get_post_questions(db: AsyncSession, limit: int = 10, offset: int = 0) -> List[Dict]:
-    # First query to get posts and their status
-    query = (
-        select(Post, PostStatusCurr)
-        .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
-        .where(
-            Post.type == 'Question',
-            PostStatusCurr.is_blocked == False,
-            PostStatusCurr.is_deleted == False
-        )
-        .order_by(desc(Post.post_at))
-        .limit(limit)
-        .offset(offset)
-    )
-    results = await db.execute(query)
-    posts_and_statuses = results.fetchall()
     
-    post_ids = [post.id for post, status in posts_and_statuses if not status.is_anonymous]
 
-    # Conditionally fetch member details
-    if post_ids:
-        member_query = (
-            select(Post.id, MemberProfileCurr.image, MemberProfileCurr.alias)
+
+async def get_random_post_questions_polls_list(
+    db: AsyncSession,
+    member_id: UUID,
+    limit: int,
+    sample_size: int,
+    batch_count: int,
+    post_type: str
+):
+
+    combined_posts = []
+    
+    for _ in range(batch_count):
+        random_posts = await get_random_questions_polls_with_details(db, sample_size, post_type, member_id)
+        combined_posts.extend(random_posts)
+    
+    random.shuffle(combined_posts)
+    
+    return set(combined_posts[:limit])
+
+async def get_searched_question_poll_list(
+    db: AsyncSession,
+    member_id: UUID,
+    search: str,
+    limit: int,
+    offset: int,
+    post_type: str
+):
+
+    query = (
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+            .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
             .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
-            .where(Post.id.in_(post_ids))
+            .where(
+                or_(
+                    text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
+                ),
+                PostStatusCurr.is_blocked == False,
+                PostStatusCurr.is_deleted == False,
+                Post.type == post_type
+            )
+            .order_by(desc(Post.post_at))
+            .limit(limit)
+            .offset(offset)
         )
-        member_results = await db.execute(member_query)
-        member_details = {result[0]: {"image": result[1], "alias": result[2]} for result in member_results.fetchall()}
-    else:
-        member_details = {}
 
-    return [
-        {
-            "post": post,
-            "status": {
-                "is_anonymous": status.is_anonymous,
-                "is_deleted": status.is_deleted,
-                "is_blocked": status.is_blocked,
-                "update_at": status.update_at
-            },
-            "member": member_details.get(post.id, {"image": None, "alias": None}) if not status.is_anonymous else {"image": None, "alias": None}
-        }
-        for post, status in posts_and_statuses
-    ]
-"""
+    result = await db.execute(query, {'search': search})
+    posts = result.fetchall()
+    
+    return posts
 
 
 async def get_post_question(
@@ -212,11 +237,11 @@ async def get_post_question(
     post = results.fetchone()
     
     if not post:
-        raise Exception("Post not found")
+        raise Exception(POST_NOT_FOUND)
     if post[1].is_deleted:
-        raise Exception("Post is deleted") 
+        raise Exception(POST_DELETED) 
     if post[1].is_blocked:
-        raise Exception("Post is blocked")
+        raise Exception(POST_BLOCKED)
     
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
@@ -304,11 +329,11 @@ async def get_post_poll(
     post = results.fetchone()
     
     if not post:
-        raise Exception("Post not found")
+        raise Exception(POST_NOT_FOUND)
     if post[1].is_deleted:
-        raise Exception("Post is deleted") 
+        raise Exception(POST_DELETED) 
     if post[1].is_blocked:
-        raise Exception("Post is blocked")
+        raise Exception(POST_BLOCKED)
     
     poll_items = await get_poll_post_items(db, post[0].id)
     
@@ -369,12 +394,12 @@ async def get_hop_posts(
         .offset(offset)
     )
     
-    if sort_type == "newest":
+    if sort_type == HOPSortType.newest:
         query = base_query.order_by(desc(Post.post_at))
-    elif sort_type == "random":
+    elif sort_type == HOPSortType.random:
         query = base_query.order_by(func.random())
     else:
-        raise ValueError("Invalid sort_type. Must be 'newest' or 'random'.")
+        raise ValueError(INVALID_SORT_TYPE)
 
     results = await db.execute(query)
     posts = results.fetchall()
@@ -415,29 +440,18 @@ async def get_mp_posts(
     interest: str
 ):
     
-    where_clause_dict = {}
+    where_clause_dict = {
+        "PostStatusCurr.is_blocked": False,
+        "PostStatusCurr.is_deleted": False
+    }
 
     if interest:
         where_clause_dict["Post.interest_id"] = interest
-        where_clause_dict["PostStatusCurr.is_blocked"] = False
-        where_clause_dict["PostStatusCurr.is_deleted"] = False
-    else:
-        where_clause_dict["PostStatusCurr.is_blocked"] = False
-        where_clause_dict["PostStatusCurr.is_deleted"] = False
 
-    query = (
-        select(ViewPostScore, Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
-        .join(Post, Post.id == ViewPostScore.post_id)
-        .join(PostStatusCurr, PostStatusCurr.post_id == ViewPostScore.post_id)
-        .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
-    )
 
-    for table_column, value in where_clause_dict.items():
-        table, column = table_column.split(".")
-        mapped_table = globals()[table]
-        query = query.where(getattr(mapped_table, column) == value)
+    query = await get_most_popular_base_func(where_clause_dict)
 
-    query = query.order_by(desc(ViewPostScore.post_score)).limit(PaginationLimit.random).offset(offset).limit(limit)
+    query = query.order_by(desc(ViewPostScore.post_score)).limit(PaginationLimit.most_popular).offset(offset).limit(limit)
 
     result = await db.execute(query)
     post_scores = result.fetchall()
@@ -452,36 +466,6 @@ async def get_searched_posts(
     limit: int,
     offset: int
 ):
-    
-    pgroonga_match_op = operators.custom_op('&@')
-
-    raw_query = text("""
-    SELECT 
-    pst.post_posted.*, 
-    post_status_curr.*, 
-    mbr_profile_curr.df_img, 
-    mbr_profile_curr.df_alias
-    FROM 
-        pst.post_posted
-    JOIN 
-        pst.post_status_curr 
-        ON post_posted.post_id = post_status_curr.post_id
-    JOIN 
-        mbr.mbr_profile_curr 
-        ON post_posted.mbr_id = mbr_profile_curr.mbr_id
-    WHERE 
-        (post_posted.tag1_std &@ :search
-        OR post_posted.tag2_std &@ :search
-        OR post_posted.tag3_std &@ :search
-        OR post_posted.post_title &@ :search
-        OR post_posted.post_detail &@ :search)
-        AND post_status_curr.is_blocked = FALSE
-        AND post_status_curr.is_deleted = FALSE
-    ORDER BY 
-        post_posted.post_at DESC
-    LIMIT :limit
-    OFFSET :offset;
-    """)
 
     query = (
             select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
@@ -489,11 +473,11 @@ async def get_searched_posts(
             .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
             .where(
                 or_(
-                    Post.tag1_std.op('&@')(search),
-                    Post.tag2_std.op('&@')(search),
-                    Post.tag3_std.op('&@')(search),
-                    Post.title.op('&@')(search),
-                    Post.body.op('&@')(search),
+                    text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
+                    text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
                 ),
                 PostStatusCurr.is_blocked == False,
                 PostStatusCurr.is_deleted == False
@@ -503,45 +487,13 @@ async def get_searched_posts(
             .offset(offset)
         )
 
-    result = await db.execute(query)
-    # result = await db.execute(raw_query, {"search": search, "limit": limit, "offset": offset})
+    result = await db.execute(query, {'search': search})
     posts = result.fetchall()
     
     return posts
 
 
 #GET RANDOM
-async def get_random_sample_posts(session: AsyncSession, sample_size: int) -> List[Post]:
-    
-    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size})")
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-async def get_random_posts_with_details(session: AsyncSession, sample_size: int) -> List:
-    
-    random_sample_posts = await get_random_sample_posts(session, sample_size)
-
-    if not random_sample_posts:
-        return []
-
-    
-    PostStatusCurrAlias = aliased(PostStatusCurr)
-    MemberProfileCurrAlias = aliased(MemberProfileCurr)
-    
-    stmt = (
-        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
-        .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
-        .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
-        .where(
-            Post.id.in_(random_sample_posts),
-            PostStatusCurrAlias.is_blocked == False,
-            PostStatusCurrAlias.is_deleted == False
-        )
-    )
-
-    result = await session.execute(stmt)
-    return result.all()
-
 async def get_random_posts(
     session: AsyncSession, 
     batch_size: int, 

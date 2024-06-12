@@ -16,6 +16,8 @@ import requests
 
 from uuid import UUID
 from utilities.constants import (
+    INVALID_SOCIAL_TOKEN,
+    SESSION_NOT_EXIST,
     SocialType,
     APPLE_TOKEN_ISS, APPLE_TOKEN_AUD,
     APPLE_AUTH_KEY_URL,GOOGLE_AUTH_KEY_URL,
@@ -155,9 +157,6 @@ async def get_registration_user_by_id(
     
     return (await db.execute(query)).scalar()
 
-"""
-return (await db.scalars(select(MemberProfile).filter(MemberProfile.id == user_id))).first()
-"""
 
 async def create_signin_session(
     user_id: UUID,
@@ -213,7 +212,7 @@ async def delete_session(
     del_query = delete(SessionCurr).where(SessionCurr.id == ses_id)
     curr_ses =  await db.get(SessionCurr, ses_id)
     if not curr_ses:
-        raise Exception("Session does not exist")
+        raise Exception(SESSION_NOT_EXIST)
     ses_prev = SessionPrev(
         id = ses_id,
         member_id = curr_ses.member_id,
@@ -263,7 +262,7 @@ async def verify_apple_token(
             raise
             
     except:
-        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Invalid Social Token")
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= INVALID_SOCIAL_TOKEN)
         
         
 async def verify_google_token(
@@ -283,4 +282,4 @@ async def verify_google_token(
             raise
             
     except:
-        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= "Invalid Social Token")
+        raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED, detail= INVALID_SOCIAL_TOKEN)

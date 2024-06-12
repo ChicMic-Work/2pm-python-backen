@@ -63,7 +63,7 @@ async def create_interest_choices(
         existing_interest = await db.execute(query)
 
         if existing_interest.scalar():
-            raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail=f"Language '{interest.name}' already exists")
+            raise HTTPException(status_code= status.HTTP_400_BAD_REQUEST, detail=f"Topic Area '{interest.name}' already exists")
         
         new_interest = InterestAreas(
                 name= interest.name,

@@ -37,6 +37,18 @@ from database.models import (
 )
 from uuid_extensions import uuid7
 
+
+def add_post_tags(post: Post, tags: List[str]):
+    try:
+        if tags[0]:
+            post.tag1 = tags[0]
+        if tags[1]:
+            post.tag2 = tags[1]
+        if tags[2]:
+            post.tag3 = tags[2]
+    except:pass
+    
+
 #BLOG
 async def create_blog_post_crud(
     db: AsyncSession,
@@ -69,14 +81,7 @@ async def create_blog_post_crud(
         is_anonymous = post_request.is_anonymous,
         add_type = AddType.Insert
     )
-    
-    # for tag in post_request.tags:
-    #     post.tag1.append(
-    #         models.PostTag(
-    #             post_id = post.id,
-    #             tag = tag
-    #         )
-    #     )
+    add_post_tags(post, post_request.tags)
     
     return del_query, post, post_curr, post_hist
 
@@ -146,13 +151,7 @@ async def create_ques_post_crud(
         add_type = AddType.Insert
     )
     
-    # for tag in post_request.tags:
-    #     post.tag1.append(
-    #         models.PostTag(
-    #             post_id = post.id,
-    #             tag = tag
-    #         )
-    #     )
+    add_post_tags(post, post_request.tags)
     
     return del_query, post, post_curr, post_hist
 
@@ -210,6 +209,9 @@ async def create_ans_post_crud(
             assc_post_id = post_request.post_ques_id,
             post_at= current_datetime()
         )
+        
+        add_post_tags(post, [ques.tag1, ques.tag2, ques.tag3])
+        
 
         post_curr   = PostStatusCurr(
             post_id = post.id,
@@ -287,6 +289,8 @@ async def create_poll_post_crud(
         body = post_request.body,
         post_at= current_datetime()
     )
+    
+    add_post_tags(post, post_request.tags)
 
     post_curr   = PostStatusCurr(
         post_id = post.id,
@@ -403,54 +407,3 @@ async def get_poll_post_items(
     return poll_questions
 
 
-
-
-
-"""
-async def create_post_crud(
-    db: AsyncSession,
-    member_id: UUID,
-    post_request: PostCreateRequest
-):
-    if post_request.type == PostType.B:
-        return Post(
-            id = uuid7,
-            member_id = member_id,
-            intrst_id = post_request.interest_area_id,
-            lang_id   = post_request.language_id,
-            is_anonymous = post_request.is_anonymous,
-            is_drafted   = post_request.is_drafted,
-            type = post_request.type,
-            title = post_request.title,
-            body = post_request.body
-        )
-    elif post_request.type == PostType.Q:
-        return Post(
-            id = uuid7,
-            member_id = member_id,
-            is_anonymous = post_request.is_anonymous,
-            is_drafted   = post_request.is_drafted,
-            type = post_request.type,
-            title = post_request.title,
-            body = post_request.body
-        )
-    elif post_request.type == PostType.A:
-        return Post(
-            id = uuid7,
-            member_id = member_id,
-            ass_post_id = post_request.ass_post_id,
-            is_anonymous = post_request.is_anonymous,
-            is_drafted   = post_request.is_drafted,
-            type = post_request.type,
-            body = post_request.body
-        )
-    elif post_request.type == PostType.P:
-        Post(
-            id = uuid7,
-            member_id = member_id,
-            is_anonymous = post_request.is_anonymous,
-            is_drafted   = post_request.is_drafted,
-            type = post_request.type,
-            title = post_request.title,
-        )
-"""

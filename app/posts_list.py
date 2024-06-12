@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from fastapi import (
     APIRouter, Depends, 
     HTTPException, Header, 
@@ -14,7 +15,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_list import convert_all_post_list_for_response, get_cd_answers, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_posts, get_searched_posts
+from crud.c_posts_list import convert_all_post_list_for_response, get_cd_answers, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -23,7 +24,7 @@ from crud.c_auth import (
 
 from schemas.s_posts_list import  PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    AuthTokenHeaderKey, PostType
+    DRAFT_NOT_FOUND, EMPTY_SEARCH_STRING, INVALID_POST_TYPE, INVALID_SEARCH_QUERY, AuthTokenHeaderKey, HOPSortType, PostListType, PostType, RandomSample, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -61,27 +62,20 @@ async def get_member_drafts(
 
         user: MemberProfileCurr = request.user
         if post_type not in PostType.types_list:
-            raise Exception("Invalid post type")
+            raise Exception(INVALID_POST_TYPE)
         
-        if post_type == PostType.Blog:
-            drafts = await get_blog_drafts(db, user.id)
-        elif post_type == PostType.Question:
-            drafts = await get_ques_drafts(db, user.id)
-        elif post_type == PostType.Answer:
-            drafts = await get_ans_drafts(db, user.id)
-        elif post_type == PostType.Poll:
-            drafts = await get_poll_drafts(db, user.id)
+        drafts = await get_user_drafted_posts(db, user.id, post_type)
 
         return {
-            "message": "success",
-            "data": drafts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: drafts
         }
 
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
 @router.get(
@@ -100,18 +94,17 @@ async def get_member_draft(
         
         post_draft = await db.get(PostDraft, draft_id)
         if not post_draft:
-            raise Exception("Draft not found")
+            raise Exception(DRAFT_NOT_FOUND)
         if post_draft.member_id != user.id:
-            raise Exception("Draft not found")
+            raise Exception(DRAFT_NOT_FOUND)
+        
+        member = {"alias": user.alias}
         
         if post_draft.type == PostType.Blog or post_draft.type == PostType.Question:
             
-            tags = []
-            
-            
             post_draft = PostBlogQuesResponse(
                 post_id = str(post_draft.id),
-                member= {"alias": user.alias},
+                member= member,
                 
                 title= post_draft.title,
                 body= post_draft.body,
@@ -121,27 +114,12 @@ async def get_member_draft(
                 language_id= post_draft.lang_id,
                 
                 post_at= post_draft.save_at,
-                tags= tags
             )
             
-        # elif post_draft.type == PostType.Question:
-        #     post_draft = PostBlogQuesResponse(
-        #         post_id = str(post_draft.id),
-        #         member= {"alias": user.alias},
-                
-        #         title= post_draft.title,
-        #         body= post_draft.body,
-        #         type= post_draft.type,
-                
-        #         interest_area_id= post_draft.interest_id,
-        #         language_id= post_draft.lang_id,
-                
-        #         post_at= post_draft.save_at
-        #     )
         elif post_draft.type == PostType.Answer:
             post_draft = PostAnsResponse(
                 post_id = str(post_draft.id),
-                member= {"alias": user.alias},
+                member= member,
                 
                 title= post_draft.title,
                 body= post_draft.body,
@@ -156,7 +134,7 @@ async def get_member_draft(
         elif post_draft.type == PostType.Poll:
             post_draft = PostPollResponse(
                 post_id = str(post_draft.id),
-                member= {"alias": user.alias},
+                member= member,
                 
                 title= post_draft.title,
                 body= post_draft.body,
@@ -170,18 +148,16 @@ async def get_member_draft(
                 poll= await get_poll_post_items(db, post_draft.id)
             )
         
-        
-        
         return {
-            "message": "success",
-            "data": post_draft
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: post_draft
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
 
@@ -195,12 +171,22 @@ async def get_member_questions(
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
     offset: int = 0,
-    type: str = "popular"
+    type: str = PostListType.random,
+    search: Optional[str] = None
 ):
     try:
-
+        
         user: MemberProfileCurr = request.user
-        questions = await get_post_questions_list(db, user.id, limit, offset)
+        
+        if type == PostListType.random:
+            questions = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._5, RandomSample._5, PostType.Question)
+        elif type == PostListType.search:
+            if not search:
+                raise Exception(INVALID_SEARCH_QUERY)
+            questions = await get_searched_question_poll_list(db, user.id, search ,limit, offset, PostType.Question)
+        else:
+            questions = await get_post_questions_list(db, user.id, limit, offset)
+        
         
         res_data = []
         
@@ -225,15 +211,15 @@ async def get_member_questions(
             ))
         
         return {
-            "message": "success",
-            "data": res_data
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_data
         }
 
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
 @router.get(
@@ -284,39 +270,16 @@ async def get_member_question(
             post_at= post[0].post_at
         )
         
-        # member = {
-        #     "image": post[2],
-        #     "alias": post[3],
-        #     "is_anonymous": post[1].is_anonymous
-        # }
-        
-        # if post[1].is_anonymous:
-        #     member = {
-        #         "image": None,
-        #         "alias": None,
-        #         "is_anonymous": post[1].is_anonymous
-        #     }
-        
-        # PostAnsResponse(
-        #     post_id = str(post.id),
-        #     member= {"alias": user.alias},
-        #     type= post.type,
-        #     title= post.title,
-        #     body= post.body,
-        #     post_at= post.post_at,
-        #     ans_list= ans_list
-        # )
-        
         return {
-            "message": "success",
-            "data": {"ans_list": ans_list, "post": post}
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: {"ans_list": ans_list, "post": post}
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
         
@@ -329,12 +292,22 @@ async def get_member_polls(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
-    offset: int = 0
+    offset: int = 0,
+    type: str = PostListType.random,
+    search: Optional[str] = None
 ):
     try:
 
         user: MemberProfileCurr = request.user
-        polls = await get_post_polls_list(db, user.id, limit, offset)
+        
+        if type == PostListType.random:
+            polls = await get_random_post_questions_polls_list(db, user.id, limit, 5, 5, PostType.Poll)
+        elif type == PostListType.search:
+            if not search:
+                raise Exception(INVALID_SEARCH_QUERY)
+            polls = await get_searched_question_poll_list(db, user.id, search, limit, offset, PostType.Poll)
+        else:
+            polls = await get_post_polls_list(db, user.id, limit, offset)
         
         res_data = []
         
@@ -359,16 +332,16 @@ async def get_member_polls(
             ))
         
         return {
-            "message": "success",
-            "data": res_data
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_data
         }
         
                 
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
 
@@ -423,8 +396,8 @@ async def get_member_poll(
                     )
         
         return {
-            "message": "success",
-            "data": {
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: {
                 "poll": poll_data,
                 "reveal_at": poll_reveal,
                 "selected_choices": mem_poll
@@ -434,8 +407,8 @@ async def get_member_poll(
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
         
@@ -449,7 +422,7 @@ async def hot_off_press(
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
     offset: int = 0,
-    sort_type: str = "newest"
+    sort_type: str = HOPSortType.newest
 ):
     try:
         user: MemberProfileCurr = request.user
@@ -459,16 +432,16 @@ async def hot_off_press(
         res_posts = await convert_all_post_list_for_response(db, posts)
 
         return {
-            "message": "success",
-            "data": res_posts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
         }
                 
 
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
     
 
@@ -509,15 +482,15 @@ async def club_daily_answers(
             ))
 
         return {
-            "message": "success",
-            "data": res_posts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
         }
     
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
     
 
@@ -544,14 +517,14 @@ async def most_popular_posts(
             res_posts = await convert_all_post_list_for_response(db, posts, n=1)
 
         return {
-            "message": "success",
-            "data": res_posts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
         }
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
 
 
@@ -571,7 +544,7 @@ async def search_posts(
         user: MemberProfileCurr = request.user
         
         if not search.strip():
-            raise Exception("Search string cannot be empty")
+            raise Exception(EMPTY_SEARCH_STRING)
         
         posts = await get_searched_posts(db, search.strip(), limit, offset)
 
@@ -580,15 +553,15 @@ async def search_posts(
             res_posts = await convert_all_post_list_for_response(db, posts)
 
         return {
-            "message": "success",
-            "data": res_posts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
         }
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc),
-            "data": None
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }
         
 
@@ -613,13 +586,14 @@ async def pure_random_posts(
             res_posts = await convert_all_post_list_for_response(db, posts)
 
         return {
-            "message": "success",
-            "data": res_posts
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
         }
 
         
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
         }

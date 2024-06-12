@@ -55,6 +55,9 @@ from crud.c_choices import (
 )
 
 from utilities.constants import (
+    USER_LOGGED_OUT,
+    RedisKeys,
+    ResponseKeys,
     access_token_expire,
     SocialType, AuthTokenHeaderKey,
     REDIS_DB
@@ -260,7 +263,7 @@ async def user_logged_out(
     async with db.begin():
         try:
             red = await Redis(db = REDIS_DB)
-            revoked_tokens = await red.get('revoked_tokens')
+            revoked_tokens = await red.get(RedisKeys.revoked_tokens)
             
             if revoked_tokens:
                 revoked_tokens = revoked_tokens.decode('utf-8')
@@ -269,8 +272,9 @@ async def user_logged_out(
                 revoked_tokens = Auth_token
             
             
-            await red.set('revoked_tokens', revoked_tokens)
+            await red.set(RedisKeys.revoked_tokens, revoked_tokens)
             await red.close()
+            
             user: MemberProfileCurr = request.user
 
             del_query, ses_prev = await delete_session(db, user.__getattribute__('ses'))
@@ -278,7 +282,7 @@ async def user_logged_out(
             db.add(ses_prev)
 
             return {
-                "message": "User logged out"
+                ResponseKeys.MESSAGE: USER_LOGGED_OUT
             }
         
         except Exception as exc:
@@ -288,7 +292,7 @@ async def user_logged_out(
             await db.rollback()
             response.status_code = status_code
             return {
-                "message": str(exc)
+                ResponseKeys.MESSAGE: str(exc)
             }
             
             

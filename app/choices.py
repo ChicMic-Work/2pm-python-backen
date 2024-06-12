@@ -14,14 +14,16 @@ from database.models import (
 )
 
 from utilities.constants import (
-    ChoicesType
+    ChoicesType,
+    ResponseKeys,
+    ResponseMsg
 )
 
 from typing import (
     List
 )
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 from starlette import status
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,12 +38,12 @@ router = APIRouter(
 
 @router.post(
     "/create/",
-    # response_model = List[LangIAResponse],
     status_code = status.HTTP_201_CREATED
     )
 async def create_choices(
     request: Request,
     choices: ChoicesCreate,
+    response: Response,
     db: AsyncSession = Depends(get_db)
 ):
     async with db.begin():
@@ -53,18 +55,16 @@ async def create_choices(
 
             db.add_all(created_choices)
 
-            return "created"
+            return ResponseMsg.CREATED
 
         except Exception as e:
             await db.rollback()
-            if hasattr(e, "detail") and hasattr(e, "status_code"):
-                msg = e.detail
-                status_code = e.status_code
-            else:
-                status_code = 500
-                msg = 'Internal Server Error'
+                
+            response.status_code = status.HTTP_400_BAD_REQUEST
 
-            raise HTTPException(status_code=status_code, detail=msg) from e
+            return {
+                ResponseKeys.MESSAGE: str(e)
+            }
     
 @router.get(
     "/all", 

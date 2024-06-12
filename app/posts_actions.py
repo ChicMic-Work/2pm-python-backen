@@ -24,7 +24,7 @@ from crud.c_auth import (
 from schemas.s_posts_actions import MemTakePollReq
 from schemas.s_posts_list import PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    AuthTokenHeaderKey, PostType
+    DUPLICATE_POLL_ITEM_IDS, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, AuthTokenHeaderKey, PostType, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -63,16 +63,16 @@ async def member_take_poll(
         user: MemberProfileCurr = request.user
         
         if len(choices.poll_item_ids) != len(set(choices.poll_item_ids)):
-            raise Exception("Duplicate poll item ids")
+            raise Exception(DUPLICATE_POLL_ITEM_IDS)
 
         poll_item = await db.get(PollQues, choices.poll_item_ids[0])
 
         if not poll_item:
-            raise Exception("Poll item not found")
+            raise Exception(POLL_ITEM_NOT_FOUND)
 
         post = await db.get(Post, poll_item.post_id)
         if not post:
-            raise Exception("Post not found")
+            raise Exception(POST_NOT_FOUND)
 
         #check if post is not deleted or blocked
         post_curr = await check_poll_details_before_take(db, post.id)
@@ -90,13 +90,13 @@ async def member_take_poll(
         await db.commit()
 
         return {
-            "message": "success"
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS
         }
 
     except Exception as exc:
-        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        response.status_code = status.HTTP_400_BAD_REQUEST
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }
         
 
@@ -115,17 +115,16 @@ async def member_reveal_poll(
         
         post = await db.get(Post, post_id)
         if not post:
-            raise Exception("Post not found")
+            raise Exception(POST_NOT_FOUND)
         
         mem_reveal = await check_member_reveal_took_poll(db, user.id, post_id)
-        
-        
         
         db.add(mem_reveal)
         await db.commit()
         
+        
     except Exception as exc:
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {
-            "message": str(exc)
+            ResponseKeys.MESSAGE: str(exc)
         }

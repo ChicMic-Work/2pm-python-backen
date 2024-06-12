@@ -43,7 +43,7 @@ from database.models import (
 )
 
 from utilities.constants import (
-    ALIAS_ATMOST, BIO_ATMOST, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
+    ALIAS_ATMOST, BIO_ATMOST, FOLLOWED, UNFOLLOWED, ResponseKeys, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
     ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
@@ -95,21 +95,21 @@ async def follow_user(
             
             if del_query:
                 await db.execute(del_query)
-                msg = "Unfollowed"
+                msg = UNFOLLOWED
             else:
                 db.add(curr)
-                msg = "Followed"
+                msg = FOLLOWED
                 
             db.add(hist)
             
             return {
-                "message": msg
+                ResponseKeys.MESSAGE: msg
             }
             
             
         except Exception as exc:
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
-                "message": str(exc),
-                "data": None
+                ResponseKeys.MESSAGE: str(exc),
+                ResponseKeys.DATA: None
             }
