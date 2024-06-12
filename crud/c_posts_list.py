@@ -470,9 +470,9 @@ async def get_searched_posts(
         mbr.mbr_profile_curr 
         ON post_posted.mbr_id = mbr_profile_curr.mbr_id
     WHERE 
-        (post_posted.tag1 &@ :search
-        OR post_posted.tag2 &@ :search
-        OR post_posted.tag3 &@ :search
+        (post_posted.tag1_std &@ :search
+        OR post_posted.tag2_std &@ :search
+        OR post_posted.tag3_std &@ :search
         OR post_posted.post_title &@ :search
         OR post_posted.post_detail &@ :search)
         AND post_status_curr.is_blocked = FALSE
@@ -489,9 +489,9 @@ async def get_searched_posts(
             .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
             .where(
                 or_(
-                    Post.tag1.op('&@')(search),
-                    Post.tag2.op('&@')(search),
-                    Post.tag3.op('&@')(search),
+                    Post.tag1_std.op('&@')(search),
+                    Post.tag2_std.op('&@')(search),
+                    Post.tag3_std.op('&@')(search),
                     Post.title.op('&@')(search),
                     Post.body.op('&@')(search),
                 ),
