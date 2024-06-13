@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,10 +6,10 @@ from uuid import UUID
 from uuid_extensions import uuid7
 from crud.c_posts_list import get_post_tags_list
 from database.models import (
-    Languages,
+    Languages, MmbFollowCurr,
     InterestAreas,
     MemberProfileCurr, MemberProfileHist,
-    AliasHist,
+    AliasHist, MmbFollowHist,
     PollQues,
     Post,
     PostStatusCurr,
@@ -22,6 +22,7 @@ from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse
 from utilities.constants import (
     USER_NOT_FOUND,
     AddType,
+    MemFollowType,
     PostType
 )
 
@@ -73,15 +74,76 @@ async def create_mem_profile_history(
     return new_profile
 
 
+#SEARCH
+
+async def get_follow_counts_search(
+    db: AsyncSession,
+    user_id: UUID,
+    searching_user_id: UUID,
+    check_is_following: bool = True
+):
+    
+    followers_query = select(func.count(MmbFollowCurr.id)).where(MmbFollowCurr.followed_id == user_id)
+    followers_result = await db.execute(followers_query)
+    followers_count = followers_result.scalar()
+    if not followers_count:
+        followers_count = 0
+
+    
+    following_query = select(func.count(MmbFollowCurr.id)).where(MmbFollowCurr.following_id == user_id)
+    following_result = await db.execute(following_query)
+    following_count = following_result.scalar()
+    if not following_count:
+        following_count = 0
+
+    result_data = {
+        "followers_count": followers_count,
+        "following_count": following_count
+    } 
+    
+    if not check_is_following:
+        result_data["is_following"] = True
+        result_data["my_profile"] = False
+        return result_data
+    
+    if searching_user_id == user_id:
+        result_data["is_following"] = False
+        result_data["my_profile"] = True
+        return result_data
+    
+    # Query to check if searching_user_id is following user_id
+    is_following_query = select(MmbFollowCurr.id).where(
+        and_(
+            MmbFollowCurr.following_id == searching_user_id,
+            MmbFollowCurr.followed_id == user_id
+        )
+    )
+    is_following_result = await db.execute(is_following_query)
+    
+    if is_following_result.scalar():
+        is_following = True
+    else:
+        is_following = False
+    
+    result_data["is_following"] = is_following
+    result_data["my_profile"] = False
+    
+    return result_data
+
 async def get_searched_users(
     db: AsyncSession,
     name: str,
     limit: int,
-    offset: int
+    offset: int,
+    searching_user_id: UUID
 ):
-
     query = (
-        select(MemberProfileCurr.alias, MemberProfileCurr.id, MemberProfileCurr.image, MemberProfileCurr.bio)
+        select(
+            MemberProfileCurr.alias, 
+            MemberProfileCurr.id, 
+            MemberProfileCurr.image, 
+            MemberProfileCurr.bio
+        )
         .where(MemberProfileCurr.alias.ilike(f"%{name}%"))
         .limit(limit)
         .offset(offset)
@@ -90,7 +152,22 @@ async def get_searched_users(
     results = await db.execute(query)
     users = results.fetchall()
 
-    return users
+    # Fetch follower and following counts for each user, and if the searching user is following them
+    user_data = []
+    for user in users:
+        follow_counts = await get_follow_counts_search(db, user[1], searching_user_id)
+        user_data.append({
+            "alias": user[0],
+            "id": user[1],
+            "image": user[2],
+            "bio": user[3],
+            "followers_count": follow_counts["followers_count"],
+            "following_count": follow_counts["following_count"],
+            "is_following": follow_counts["is_following"],
+            "my_profile": follow_counts["my_profile"]
+        })
+
+    return user_data
 
 
 async def get_user_profile_details_by_id(
@@ -139,3 +216,65 @@ async def get_user_posts_details_by_user_id(
     posts = results.fetchall()
     
     return posts
+
+
+async def get_member_followers_following(
+    db: AsyncSession,
+    user_id: UUID,
+    limit: int,
+    offset: int,
+    type: str = MemFollowType.Followers
+):
+    if type == MemFollowType.Followers:
+        query = (
+            select(
+                MemberProfileCurr.alias, 
+                MemberProfileCurr.id, 
+                MemberProfileCurr.image, 
+                MemberProfileCurr.bio
+            )
+            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
+            .where(MmbFollowCurr.followed_id == user_id)
+            .order_by(desc(MmbFollowCurr.follow_at))
+            .limit(limit)
+            .offset(offset)
+        )
+        check_following = True
+    elif type == MemFollowType.Following:
+        query = (
+            select(
+                MemberProfileCurr.alias, 
+                MemberProfileCurr.id, 
+                MemberProfileCurr.image, 
+                MemberProfileCurr.bio
+            )
+            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id)
+            .where(MmbFollowCurr.following_id == user_id)
+            .order_by(desc(MmbFollowCurr.follow_at))
+            .limit(limit)
+            .offset(offset)
+        )
+        check_following = False
+    else:
+        raise Exception("Invalid type")
+
+    results = await db.execute(query)
+    users = results.fetchall()
+    
+    user_data = []
+    for user in users:
+        follow_counts = await get_follow_counts_search(db, user[1], user_id, check_following)
+        
+        user_data.append({
+            "alias": user[0],
+            "id": user[1],
+            "image": user[2],
+            "bio": user[3],
+            "followers_count": follow_counts["followers_count"],
+            "following_count": follow_counts["following_count"],
+            "is_following": follow_counts["is_following"],
+            "my_profile": follow_counts["my_profile"]
+        })
+        
+    return user_data
+

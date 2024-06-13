@@ -1,4 +1,4 @@
-from sqlalchemy import select, asc, delete, desc, and_
+from sqlalchemy import exists, select, asc, delete, desc, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,17 +8,39 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from utilities.constants import (
-    INVALID_POLL_ITEM, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostType
+    INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostInviteListType, PostType
 )
 
 from database.models import (
-    DailyAns, MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist
+    DailyAns, MemberProfileCurr, MmbFollowCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    PostDraft, PostStatusCurr, PostStatusHist, QuesInvite
 )
 from uuid_extensions import uuid7
 
+#CHECK POST CURRENT STATUS
+async def check_post_curr_details(
+    db: AsyncSession,
+    post_id: UUID
+):
+    
+    query = (
+        select(PostStatusCurr)
+        .where(
+            PostStatusCurr.post_id == post_id
+        )
+    )
+    
+    results = await db.execute(query)
+    post_curr = results.fetchone()
+    
+    if post_curr[0].is_deleted:
+        raise Exception(POST_DELETED) 
+    if post_curr[0].is_blocked:
+        raise Exception(POST_BLOCKED)
+    
+    return post_curr
 
-#check if poll items exist and are of same post
+#TAKE POLL
 async def check_if_poll_items_exist(
     db: AsyncSession,
     post_id: UUID,
@@ -41,29 +63,6 @@ async def check_if_poll_items_exist(
         raise Exception(INVALID_POLL_ITEM)
 
     return poll_items
-
-async def check_poll_details_before_take(
-    db: AsyncSession,
-    post_id: UUID
-):
-    
-    query = (
-        select(PostStatusCurr)
-        .where(
-            PostStatusCurr.post_id == post_id
-        )
-    )
-    
-    results = await db.execute(query)
-    post_curr = results.fetchone()
-    
-    if post_curr[0].is_deleted:
-        raise Exception(POST_DELETED) 
-    if post_curr[0].is_blocked:
-        raise Exception(POST_BLOCKED)
-    
-    return post_curr
-
 
 async def check_if_user_took_poll(
     db: AsyncSession,
@@ -173,3 +172,123 @@ async def check_member_reveal_took_poll(
     )
     
     return reveal
+
+
+
+#INVITE
+async def invite_member_to_post(
+    db: AsyncSession,
+    post: Post,
+    user_id: UUID,
+    inviting_user_id: UUID
+):
+    if post.type == PostType.Question:
+        
+        _invited = QuesInvite(
+            ques_post_id=post.id,
+            inviting_mbr_id=inviting_user_id,
+            invited_mbr_id= user_id
+        )
+        
+    elif post.type == PostType.Poll:
+        
+        _invited = PollInvite(
+            poll_post_id=post.id,
+            inviting_mbr_id=inviting_user_id,
+            invited_mbr_id= user_id
+        )
+        
+    else:
+        raise Exception(INVALID_POST_TYPE)
+    
+    return _invited
+
+
+
+#DONT USE THIS YET
+async def invite_member_to_post_list(
+    db: AsyncSession,
+    post: Post,
+    user_id: UUID,
+    limit: int,
+    offset: int,
+    type: str = PostInviteListType.FOLLOWERS
+):
+
+    if type == PostInviteListType.FOLLOWERS:
+        
+        if post.type == PostType.Question:
+            
+            answered_subquery = (
+                select(Post.member_id)
+                .where(Post.assc_post_id == post.id)
+                .subquery()
+            )
+            
+            invited_subquery = (
+                select(QuesInvite.invited_mbr_id)
+                .where(QuesInvite.ques_post_id == post.id)
+                .subquery()
+            )
+            
+        else: 
+            
+            invited_subquery = (
+                select(PollInvite.invited_mbr_id)
+                .where(PollInvite.poll_post_id == post.id)
+                .subquery()
+            )
+            
+        query = (
+            select(
+                MemberProfileCurr.alias,
+                MemberProfileCurr.id,
+                MemberProfileCurr.image,
+                MemberProfileCurr.bio,
+                exists(invited_subquery.c.invited_mbr_id)
+                    .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
+                    .label("invited_already")
+            )
+            .join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
+            .where(
+                MmbFollowCurr.followed_id == user_id,
+                MemberProfileCurr.id.notin_(answered_subquery)
+            )
+            .order_by(desc(MmbFollowCurr.follow_at))
+            .limit(limit)
+            .offset(offset)
+        )
+        
+        query = (
+            select(
+                MemberProfileCurr.alias, 
+                MemberProfileCurr.id, 
+                MemberProfileCurr.image, 
+                MemberProfileCurr.bio
+            )
+            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
+            .where(MmbFollowCurr.followed_id == user_id)
+            .order_by(desc(MmbFollowCurr.follow_at))
+            .limit(limit)
+            .offset(offset)
+        )
+        #exclude user who have already answered this post
+        
+        res = await db.execute(query)
+        users = res.fetchall()
+        
+        users_data = []
+        for user in users:
+            pass
+            users_data.append({
+                "id": user[1],
+                "alias": user[0],
+                "image": user[2],
+                "bio": user[3],
+                # "invited_already": ,
+                
+            })
+        
+        
+    elif type == PostInviteListType.FOLLOWERS:
+        pass

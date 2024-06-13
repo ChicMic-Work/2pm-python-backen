@@ -98,7 +98,7 @@ async def create_blog_post(
             )
             
             return {
-                ResponseKeys.STATUS : msg,
+                ResponseKeys.MESSAGE : msg,
                 ResponseKeys.DATA: res_data
             }
         
@@ -130,7 +130,7 @@ async def create_draft_blog_post(
         await db.refresh(draft)
 
         return {
-            ResponseKeys.STATUS: DRAFT_CREATED,
+            ResponseKeys.MESSAGE: DRAFT_CREATED,
             ResponseKeys.DRAFT_ID: str(draft.id)
         }
         

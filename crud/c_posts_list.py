@@ -24,7 +24,7 @@ from database.models import (
 from uuid_extensions import uuid7
 
 from crud.c_posts import (
-    get_poll_post_items
+    get_poll_post_items,
 )
 
 def get_post_tags_list(post: Post) -> List[str]:
@@ -312,7 +312,8 @@ async def get_post_polls_list(
 
 async def get_post_poll(
     db: AsyncSession,
-    post_id: UUID
+    post_id: UUID,
+    get_percentage: bool = False
 ):
     
     query = (
@@ -335,7 +336,7 @@ async def get_post_poll(
     if post[1].is_blocked:
         raise Exception(POST_BLOCKED)
     
-    poll_items = await get_poll_post_items(db, post[0].id)
+    poll_items = await get_poll_post_items(db, post[0].id, get_percentage)
     
     return post, poll_items
 

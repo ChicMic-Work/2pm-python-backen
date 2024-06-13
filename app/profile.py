@@ -1,7 +1,9 @@
+from uuid import UUID
 from crud.c_posts_list import convert_all_post_list_for_response
 from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
+    get_follow_counts_search,
     get_searched_users,
     get_used_alias,
     get_user_posts_details_by_user_id,
@@ -42,7 +44,7 @@ from database.models import (
 )
 
 from utilities.constants import (
-    ALIAS_ATMOST, BIO_ATMOST, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
+    ALIAS_ATMOST, BIO_ATMOST, MemFollowType, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
     ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
@@ -207,6 +209,7 @@ async def create_profile(
 
         raise HTTPException(status_code= 500, detail= str(exc)) from exc
     
+    
 @router.get(
     "/user",
     )
@@ -234,6 +237,7 @@ async def get_user_profile(
         language_choices= lang_list,
         interest_area_choices= int_list
         )
+
 
 @router.get(
     "/alias"
@@ -296,6 +300,7 @@ async def get_used_aliases(
         "is_valid": True
     }
     
+    
 @router.post(
     "/image/",
 )
@@ -335,7 +340,8 @@ async def upload_profile_image(
                 "message": IMAGE_FAIL,
                 "exc": str(exc)
             }
- 
+
+
 @router.delete(
     "/image/",
 )
@@ -366,7 +372,8 @@ async def delete_profile_image(
                 "message": IMAGE_FAIL,
                 "exc": str(exc)
             }
-        
+   
+     
 @router.post(
     "/choices/",
 )
@@ -429,18 +436,25 @@ async def search_users(
     db:AsyncSession = Depends(get_db),
 ):
     try:
+        
+        user: MemberProfileCurr = request.user
+        
         if not name.strip():
             raise Exception("name cannot be empty")
-        users = await get_searched_users(db, name.strip(), limit, offset)
+        users = await get_searched_users(db, name.strip(), limit, offset, user.id)
         res_data = []
         
         for user in users:
             
             res_data.append(SearchedUserResponse(
-                id=user.id,
-                image = user.image,
-                alias = user.alias,
-                bio= user.bio
+                id=user["id"],
+                image = user["image"],
+                alias = user["alias"],
+                bio= user["bio"],
+                followers_count= user["followers_count"],
+                following_count= user["following_count"],
+                is_following= user["is_following"],
+                my_profile= user["my_profile"]
             ))
         
         return {
@@ -469,6 +483,8 @@ async def get_user_profile(
     try:
         user = await get_user_profile_details_by_id(db, user_id)
         
+        follows = await get_follow_counts_search(db, UUID(user_id), request.user.id)
+        
         res_user = MemberProfileDetailResponse(
             id = str(user.id),
             join_at=user.join_at,
@@ -476,11 +492,12 @@ async def get_user_profile(
             alias = user.alias,
             is_dating=user.is_dating,
             gender=user.gender,
-            bio=user.bio
+            bio=user.bio,
+            followers_count=follows["followers_count"],
+            following_count=follows["following_count"],
+            is_following=follows["is_following"],
+            my_profile= follows["my_profile"]
         )
-        
-        if request.user.id == user.id:
-            res_user.my_profile = True
         
         return {
             "message": "success",
@@ -493,11 +510,10 @@ async def get_user_profile(
             "message": str(exc),
             "data": None
         }    
-        
-        
+         
 
 @router.get(
-    "/get/posts/users/{user_id}",
+    "/get/users/posts/{user_id}",
 )
 async def get_user_profile_posts(
     request: Request,
@@ -540,3 +556,30 @@ async def get_user_profile_posts(
             "message": str(exc),
             "data": None
         }
+      
+
+@router.get(
+    "/get/user/follows/",
+)
+async def get_member_followers(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0,
+    type: str = MemFollowType.Followers
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+

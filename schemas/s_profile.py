@@ -68,6 +68,11 @@ class MemberProfileDetailResponse(BaseModel):
     gender: str
     image: str |None = None
     my_profile: bool = False
+    
+    followers_count: int
+    following_count: int
+    is_following: bool
+    my_profile: bool = False
 
 
 class SearchedUserResponse(BaseModel):
@@ -75,3 +80,7 @@ class SearchedUserResponse(BaseModel):
     alias: str
     image: str | None = None
     bio: str | None = None
+    followers_count: int
+    following_count: int
+    is_following: bool
+    my_profile: bool = False

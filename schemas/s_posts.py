@@ -216,6 +216,8 @@ class PollQuesChoicesRequest(BaseModel):
     poll_item_id: str   = Field("", description="Poll Item ID, Used in response")
     ans_seq_letter: str = Field(..., max_length=PollPostLimit.ans_seq_letter_len, description="Choice Sequence Letter")
     ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
+    percentage: int | None    = None
+    selected_count: int | None = None
 
     @field_validator('ans_seq_letter')
     def validate_ans_seq_letter(cls, v):
@@ -236,6 +238,8 @@ class PollQuestionRequest(BaseModel):
     def validate_choices_length(cls, value):
         if len(value) > PollPostLimit.max_choices:
             raise ValueError("Maximum of 5 choices allowed per question")
+        if len(value) < 2:
+            raise ValueError("Poll must have at least 2 choices")
         return value
 
 class PostPollRequest(BaseModel):
@@ -274,6 +278,9 @@ class PostPollRequest(BaseModel):
     def validate_poll_length(cls, value):
         if len(value) > PollPostLimit.max_qstns:
             raise ValueError("Maximum of 5 questions allowed per poll")
+        if len(value) == 0:
+            raise ValueError("Poll must have at least 1 question")
+        
         return value
 
 

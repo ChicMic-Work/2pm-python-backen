@@ -36,13 +36,14 @@ access_token_expire = timedelta(days=30)
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
-    '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/posts/users/',
-    '/profile/follow/',
+    '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/',
+    '/profile/follow/', 'profile/get/user/follows/', 
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
     '/posts/take/poll/', '/posts/reveal/poll/',
-    '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/',
+    '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/', 
+    '/posts/invite/user/'
 ]
 
 def current_datetime():
@@ -88,6 +89,8 @@ class TableCharLimit:
     
     _255        = 255
     _330        = 330
+
+
 
 
 class PaginationLimit:
@@ -147,6 +150,7 @@ DAILY_QUES_NOT_FOUND = "Daily question not found"
 QUES_NOT_FOUND = "Question not found"
 DRAFT_NOT_FOUND = "Draft not found"
 
+CANT_INVITE_TO_POST = "Can't invite user to this post"
 INVALID_POST_TYPE = "Invalid post type"
 INVALID_SEARCH_QUERY = "Invalid search query"
 EMPTY_SEARCH_STRING = "Search string cannot be empty"
@@ -160,6 +164,7 @@ POST_BLOCKED = "Post is blocked"
 INVALID_POLL_ITEM = "One or more poll items are invalid or do not belong to the specified post"
 POLL_ALREADY_TAKEN = "User already took poll"
 POLL_ALREADY_REVEALED = "User already revealed poll"
+ALREADY_INVITED = "Already invited"
 
 UNFOLLOWED = "Unfollowed"
 FOLLOWED = "Followed"
@@ -200,6 +205,17 @@ class HOPSortType:
 class RedisKeys:
 
     revoked_tokens = "revoked_tokens"
+    
+class PostInviteListType:
+    
+    RECOMMENDATION = "recommended"
+    FOLLOWING = "following"
+    FOLLOWERS = "followers"
+
+class MemFollowType:
+    Followers = "followers"
+    Following = "following"
+       
 """
 TIMEZONE = 'Asia/Kolkata' pytz.timezone(TIMEZONE)
 """

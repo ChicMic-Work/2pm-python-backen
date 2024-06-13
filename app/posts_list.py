@@ -359,13 +359,12 @@ async def get_member_poll(
     try:
 
         user: MemberProfileCurr = request.user
-        
-        post, poll_items = await get_post_poll(db, post_id)
 
         try:
-            check_if_user_took_poll(db, user.id, post_id)
+            await check_if_user_took_poll(db, user.id, post_id)
+            post, poll_items = await get_post_poll(db, post_id)
         except:
-            pass
+            post, poll_items = await get_post_poll(db, post_id, True)
 
         member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
         
@@ -407,7 +406,7 @@ async def get_member_poll(
             ResponseKeys.DATA: {
                 "poll": poll_data,
                 "reveal_at": poll_reveal,
-                "selected_choices": mem_poll
+                "selected_choices": mem_poll,
             }
         }
                     

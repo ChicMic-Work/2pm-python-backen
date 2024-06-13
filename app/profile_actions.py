@@ -91,10 +91,13 @@ async def follow_user(
         try:
             user: MemberProfileCurr = request.user
             
+            if str(user.id) == user_id:
+                raise Exception("You can't follow yourself")
+            
             del_query, hist, curr = await follow_unfollow_user(db, user.id, user_id)
             
             if del_query:
-                await db.execute(del_query)
+                await db.delete(del_query)
                 msg = UNFOLLOWED
             else:
                 db.add(curr)
@@ -111,5 +114,5 @@ async def follow_user(
             response.status_code = status.HTTP_400_BAD_REQUEST
             return {
                 ResponseKeys.MESSAGE: str(exc),
-                ResponseKeys.DATA: None
             }
+            
