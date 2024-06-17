@@ -196,26 +196,27 @@ class PostAnsDraftRequest(BaseModel):
 #RESPONSE - ANSWER
 class PostAnsResponse(BaseModel):
     
-    post_id: str
-    member: dict
+    post_id: str | None
+    member: dict | None
     
     type: str
     title: str
-    body: str
+    body: str | None
     
     post_ques_id: str
     
     is_for_daily: bool
 
-    post_at: AwareDatetime
+    post_at: AwareDatetime | None
 
 
 #POLL
-class PollQuesChoicesRequest(BaseModel):
+class PollQuesChoicesReqBase(BaseModel):
     
     poll_item_id: str   = Field("", description="Poll Item ID, Used in response")
     ans_seq_letter: str = Field(..., max_length=PollPostLimit.ans_seq_letter_len, description="Choice Sequence Letter")
-    ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
+    ans_text: str       = Field("", max_length=TableCharLimit.poll_choice, description="Choice Text")
+    
     percentage: int | None    = None
     selected_count: int | None = None
 
@@ -225,9 +226,27 @@ class PollQuesChoicesRequest(BaseModel):
             raise ValueError(f'Choice Sequence Letter must be one of {PollPostLimit.ans_seq_letter_list}')
         return v
 
-class PollQuestionRequest(BaseModel):
+class PollQuesChoicesRequest(PollQuesChoicesReqBase):
+    ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
+
+
+class PollQuesChoicesDraftRequest(PollQuesChoicesReqBase):
+    ans_text: str       = Field("", max_length=TableCharLimit.poll_choice, description="Choice Text")
+
+
+
+
+
+class PollQuestionReqBase(BaseModel):
     
     qstn_seq_num: int = Field(..., ge=PollPostLimit.qstn_seq_num_min, le=PollPostLimit.qstn_seq_num_max, description="Question Sequence Number")
+    ques_text: str    = Field("", max_length=TableCharLimit.poll_qstn, description="Question Text")
+
+    allow_multiple: bool
+    
+
+class PollQuestionRequest(PollQuestionReqBase):
+    
     ques_text: str    = Field(..., max_length=TableCharLimit.poll_qstn, description="Question Text")
 
     allow_multiple: bool
@@ -241,35 +260,56 @@ class PollQuestionRequest(BaseModel):
         if len(value) < 2:
             raise ValueError("Poll must have at least 2 choices")
         return value
+    
+class PollQuestionDraftReq(PollQuestionReqBase):
+    
+    ques_text: str    = Field("", max_length=TableCharLimit.poll_qstn, description="Question Text")
 
-class PostPollRequest(BaseModel):
+    allow_multiple: bool
+
+    choices: List[PollQuesChoicesDraftRequest]
+
+    @field_validator("choices")
+    def validate_choices_length(cls, value):
+        if len(value) > PollPostLimit.max_choices:
+            raise ValueError("Maximum of 5 choices allowed per question")
+        return value
+    
+
+class PostPollReqBase(BaseModel):
     type: str = Field( default= PostType.Poll, description="Poll Post")
     
-    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the poll post")
+    title : str = Field("", max_length=TableCharLimit.post_title, description="Title of the poll post")
     body: str = Field("", max_length=TableCharLimit.post_detail, description="Body of the poll post")
 
-    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
-    is_anonymous: bool
-
-    tags: Optional[List[Union[str, int]]] = []
     interest_area_id: int
     language_id: int
-
-    poll: List[PollQuestionRequest]
-
+    
     @field_validator('type')
     def validate_type(cls, v):
         if v != PostType.Poll:
             raise ValueError('type must be P')
         return v
     
+
+class PostPollRequest(PostPollReqBase):
+    
+    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the poll post")
+
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
+    is_anonymous: bool
+
+    tags: Optional[List[Union[str, int]]] = []
+
+    poll: List[PollQuestionRequest]
+    
     @field_validator('tags')
     def validate_tags(cls, v):
         if len(v) > 3:
             raise ValueError('There can be up to 3 tags')
+        if len(v) == 0:
+            raise ValueError('There must be at least 1 tag')
         for tag in v:
-            # if isinstance(tag, str) and len(tag) > TableCharLimit.tag:
-            #     raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
             if len(tag) > TableCharLimit.tag:
                 raise ValueError(f'Tag "{tag}" exceeds the maximum length of {TableCharLimit.tag}')
         return v
@@ -283,7 +323,22 @@ class PostPollRequest(BaseModel):
         
         return value
 
+class PostPollDraftRequest(PostPollReqBase):
 
+
+    draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
+
+    interest_area_id: int
+    language_id: int
+
+    poll: List[PollQuestionDraftReq]
+
+    @field_validator("poll")
+    def validate_poll_length(cls, value):
+        if len(value) > PollPostLimit.max_qstns:
+            raise ValueError("Maximum of 5 questions allowed per poll")
+        
+        return value
 
 #RESPONSE - POLL
 class PostPollResponse(BaseModel):
@@ -305,7 +360,22 @@ class PostPollResponse(BaseModel):
 
     post_at: AwareDatetime
 
+class PostPollDraftResponse(BaseModel):
+    
+    post_id: str
+    member: dict
+    
+    type: str
+    
+    title: str = ""
+    body: str = ""
+    
+    interest_area_id: int
+    language_id: int
 
+    poll: List[PollQuestionDraftReq]
+
+    post_at: AwareDatetime
 
 
 

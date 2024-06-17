@@ -23,6 +23,7 @@ from schemas.s_posts import (
     PostAnsRequest,
     PostBlogDraftRequest,
     PostBlogRequest,
+    PostPollDraftRequest,
     # PostCreateRequest,
     PostPollRequest,
     PostQuesDraftRequest,
@@ -227,6 +228,7 @@ async def create_ans_post_crud(
         )
     else:
         post    = DailyAns(
+            id = uuid7(),
             ques_id = post_request.post_ques_id,
             member_id = member_id,
             is_anonymous = post_request.is_anonymous,
@@ -327,7 +329,7 @@ async def create_draft_poll_post_crud(
     db: AsyncSession,
     member_id: UUID,
     draft_id: UUID,
-    post_request: PostPollRequest
+    post_request: PostPollDraftRequest
 ):
 
     del_query = None

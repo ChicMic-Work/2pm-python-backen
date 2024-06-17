@@ -1,8 +1,10 @@
 import random
-from sqlalchemy import select, asc, delete, desc, func, and_, or_, text
+from sqlalchemy import select, asc, delete, desc, func, and_, or_, text, Date, join
 from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import operators
+
+from datetime import date
 
 from uuid import UUID
 from uuid_extensions import uuid7
@@ -45,16 +47,19 @@ def get_member_dict_for_post_detail(
     user: MemberProfileCurr = None,
     image: str = None,
     alias: str = None,
+    user_id: str = None
 ):
     member = {
             "image": user.image if user else image,
             "alias": user.alias if user else alias,
-            "is_anonymous": post_curr.is_anonymous
+            "is_anonymous": post_curr.is_anonymous,
+            "user_id": str(user.id) if user else str(user_id)
         }
     if post_curr.is_anonymous:
         member["alias"] = "Anonymous"
         member["image"] = None
         member["is_anonymous"] = post_curr.is_anonymous
+        member["user_id"] = None
     
     return member
 
@@ -144,7 +149,7 @@ async def get_post_questions_list(
     ).alias("answered_posts")
     
     query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
@@ -174,15 +179,18 @@ async def get_random_post_questions_polls_list(
     post_type: str
 ):
 
-    combined_posts = []
+    combined_posts = set()
     
     for _ in range(batch_count):
         random_posts = await get_random_questions_polls_with_details(db, sample_size, post_type, member_id)
-        combined_posts.extend(random_posts)
+        combined_posts.update(random_posts)
+        
+        if len(combined_posts) >= limit:
+            break
     
-    random.shuffle(combined_posts)
+    # random.shuffle(combined_posts)
     
-    return set(combined_posts[:limit])
+    return set(combined_posts)
 
 async def get_searched_question_poll_list(
     db: AsyncSession,
@@ -194,7 +202,7 @@ async def get_searched_question_poll_list(
 ):
 
     query = (
-            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
             .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
             .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
             .where(
@@ -225,10 +233,10 @@ async def get_post_question(
     post_id: UUID,
     limit: int ,
     offset: int
-) -> Tuple[Tuple[Post, PostStatusCurr, str, str], List[Tuple[Post, PostStatusCurr, str, str]]]:
+) -> Tuple[Tuple[Post, PostStatusCurr, str, str, str], List[Tuple[Post, PostStatusCurr, str, str, str]]]:
     
     query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(Post.id == post_id)
@@ -244,7 +252,7 @@ async def get_post_question(
         raise Exception(POST_BLOCKED)
     
     query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
@@ -284,7 +292,7 @@ async def get_post_polls_list(
     
     
     query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
@@ -317,7 +325,7 @@ async def get_post_poll(
 ):
     
     query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
@@ -357,21 +365,6 @@ async def get_member_poll_taken(
     
     poll_selected = results.fetchall()
     
-    if not poll_selected:
-        
-        query = (
-            select(PollMemReveal)
-            .where(
-                PollMemReveal.member_id == member_id,
-                PollMemReveal.post_id == post_id
-            )
-        )
-        results = await db.execute(query)
-        poll_reveal = results.fetchone()
-        if poll_reveal:
-            return poll_reveal[0].reveal_at
-        return None
-    
     return poll_selected
 
 
@@ -383,7 +376,7 @@ async def get_hop_posts(
     sort_type: str
 ) -> List:
     base_query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
         .where(
@@ -408,20 +401,46 @@ async def get_hop_posts(
 
 
 #CLUB DAILY ANSWERS
-async def get_cd_answers(
+async def get_cd_ques_list(
     db: AsyncSession,
+    query_date: date,
     limit: int,
     offset: int
 ):
-    query = (
-        select(DailyAns, DailyQues.title, MemberProfileCurr.image, MemberProfileCurr.alias)
-        .join(MemberProfileCurr, DailyAns.member_id == MemberProfileCurr.id)
-        .join(DailyQues, DailyAns.ques_id == DailyQues.id)
-        .where(
-            DailyAns.is_deleted == False,
-            DailyAns.is_blocked == False,
-            func.date(DailyAns.post_at) == current_datetime().date(),
+    
+    latest_answer_subquery = (
+        select(
+            DailyAns.ques_id,
+            func.max(DailyAns.post_at).label('latest_post_at')
         )
+        .where(
+            func.cast(DailyAns.post_at, Date) == query_date,
+            DailyAns.is_deleted == False,
+            DailyAns.is_blocked == False
+        )
+        .group_by(DailyAns.ques_id)
+        .subquery()
+    )
+
+    query = (
+        select(
+            DailyQues.id,
+            DailyQues.title,
+            DailyAns.id,
+            DailyAns.answer,
+            DailyAns.post_at,
+            MemberProfileCurr.alias,
+            MemberProfileCurr.image,
+            DailyAns.member_id,
+            DailyAns.is_anonymous
+        )
+        .outerjoin(latest_answer_subquery, DailyQues.id == latest_answer_subquery.c.ques_id)
+        .outerjoin(DailyAns, and_(
+            DailyQues.id == DailyAns.ques_id,
+            DailyAns.post_at == latest_answer_subquery.c.latest_post_at
+        ))
+        .outerjoin(MemberProfileCurr, MemberProfileCurr.id == DailyAns.member_id)
+        .where(DailyQues.is_live == True)
         .order_by(desc(DailyAns.post_at))
         .limit(limit)
         .offset(offset)
@@ -432,6 +451,32 @@ async def get_cd_answers(
     
     return answers
 
+async def club_daily_post_answers(
+    db: AsyncSession,
+    post_id: UUID,
+    query_date: date,
+    limit: int,
+    offset: int
+):
+
+    query = (
+        select(DailyAns, MemberProfileCurr.alias, MemberProfileCurr.image)
+        .join(MemberProfileCurr, DailyAns.member_id == MemberProfileCurr.id)
+        .where(
+            DailyAns.ques_id == post_id,
+            DailyAns.is_deleted == False,
+            DailyAns.is_blocked == False,
+            func.cast(DailyAns.post_at, Date) == query_date
+        )
+        .order_by(desc(DailyAns.post_at))
+        .limit(limit)
+        .offset(offset)
+    )
+
+    results = await db.execute(query)
+    answers = results.fetchall()
+    
+    return answers
 
 #MOST POPULAR
 async def get_mp_posts(
@@ -469,7 +514,7 @@ async def get_searched_posts(
 ):
 
     query = (
-            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
             .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
             .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
             .where(
@@ -581,11 +626,11 @@ async def convert_all_post_list_for_response(db, posts, n=0):
     for post_tuple in posts:
         
         if n == 0:
-            post, post_status, image, alias = post_tuple
+            post, post_status, image, alias, user_id = post_tuple
         elif n == 1:
-            _ , post, post_status, image, alias = post_tuple
+            _ , post, post_status, image, alias, user_id = post_tuple
             
-        member = get_member_dict_for_post_detail(post_status, image=image, alias= alias)
+        member = get_member_dict_for_post_detail(post_status, image=image, alias= alias, user_id= user_id)
 
         if post.type == PostType.Question or post.type == PostType.Blog:
 

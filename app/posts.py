@@ -33,6 +33,7 @@ from schemas.s_posts import (
     PostBlogQuesResponse,
     # PostCreateRequest,
     PostBlogRequest,
+    PostPollDraftRequest,
     PostPollRequest,
     PostPollResponse,
     PostQuesDraftRequest,
@@ -41,7 +42,7 @@ from schemas.s_posts import (
 
 from database.models import (
     DailyQues, MemberProfileCurr, Post,
-    PostDraft
+    PostDraft, PostStatusCurr
 )
 
 
@@ -272,7 +273,14 @@ async def create_answer_post(
             
             post_type = PostType.Answer
             
-            member = get_member_dict_for_post_detail(post_curr, user)
+            if post_curr:
+                _curr = post_curr
+            else:
+                _curr = PostStatusCurr(
+                    is_anonymous= post_request.is_anonymous,
+                )
+            
+            member = get_member_dict_for_post_detail(_curr, user)
             
             req_data = PostAnsResponse(
                 post_id = str(post.id),
@@ -417,7 +425,7 @@ async def create_poll_post(
 async def create_draft_poll_post(
     request: Request,
     response: Response,
-    draft_request: PostPollRequest,
+    draft_request: PostPollDraftRequest,
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
 ):

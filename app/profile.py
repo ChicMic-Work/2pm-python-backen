@@ -541,7 +541,7 @@ async def get_user_profile_posts(
                 is_anonymous = False
             )
             
-            posts_list = [(post[0], post_curr, get_user.image, get_user.alias) for post in user_posts]
+            posts_list = [(post[0], post_curr, get_user.image, get_user.alias, get_user.id) for post in user_posts]
             
             res_data = await convert_all_post_list_for_response(db, posts_list)
         

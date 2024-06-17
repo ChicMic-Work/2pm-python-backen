@@ -113,7 +113,7 @@ vad = unidecode('kožušček 21321 $*#^@* ä, ë, ï, ö, ü, ÿ, Ä, Ë, Ï, Ö
 """
 
 most_popular_base_query = (
-    select(ViewPostScore, Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias)
+    select(ViewPostScore, Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
     .join(Post, Post.id == ViewPostScore.post_id)
     .join(PostStatusCurr, PostStatusCurr.post_id == ViewPostScore.post_id)
     .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
@@ -155,7 +155,7 @@ async def get_random_questions_polls_with_details(
     
     remove_post_ids = []
     
-    if post_type == PostType.Answer:
+    if post_type == PostType.Question:
         answered_post_ids_query = (
             select(Post.assc_post_id)
             .where(
@@ -199,7 +199,7 @@ async def get_random_questions_polls_with_details(
     MemberProfileCurrAlias = aliased(MemberProfileCurr)
     
     stmt = (
-        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
+        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias, MemberProfileCurrAlias.id)
         .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
         .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
         .where(
@@ -234,7 +234,7 @@ async def get_random_posts_with_details(session: AsyncSession, sample_size: int)
     MemberProfileCurrAlias = aliased(MemberProfileCurr)
     
     stmt = (
-        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias)
+        select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias, MemberProfileCurrAlias.id)
         .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
         .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
         .where(

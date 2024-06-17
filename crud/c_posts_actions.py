@@ -67,7 +67,8 @@ async def check_if_poll_items_exist(
 async def check_if_user_took_poll(
     db: AsyncSession,
     user_id: UUID,
-    post_id: UUID
+    post_id: UUID,
+    raise_exc: bool = True
 ):
     query = (
         select(PollMemTake)
@@ -80,8 +81,11 @@ async def check_if_user_took_poll(
     results = await db.execute(query)
     mem_take = results.fetchone()
 
-    if mem_take:
+    if mem_take and raise_exc:
         raise Exception(POLL_ALREADY_TAKEN)
+    
+    if mem_take and not raise_exc:
+        return mem_take, "take"
     
     query = (
         select(PollMemReveal)
@@ -94,8 +98,11 @@ async def check_if_user_took_poll(
     results = await db.execute(query)
     mem_reveal = results.fetchone()
 
-    if mem_reveal:
+    if mem_reveal and raise_exc:
         raise Exception(POLL_ALREADY_REVEALED)
+    
+    if mem_reveal and not raise_exc:
+        return mem_reveal, "reveal"
     
 
 async def member_create_poll_entries(

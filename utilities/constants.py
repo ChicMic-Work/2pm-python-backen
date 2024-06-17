@@ -173,6 +173,7 @@ FOLLOWED = "Followed"
 
 class RandomSample:
     
+    _50 = 50
     _10 = 10
     _5  = 5
 

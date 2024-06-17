@@ -16,7 +16,7 @@ from crud.c_posts import (
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
 from crud.c_posts_actions import check_if_user_took_poll
-from crud.c_posts_list import convert_all_post_list_for_response, get_cd_answers, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
+from crud.c_posts_list import club_daily_post_answers, convert_all_post_list_for_response, get_cd_ques_list, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -25,7 +25,7 @@ from crud.c_auth import (
 
 from schemas.s_posts_list import  PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    DRAFT_NOT_FOUND, EMPTY_SEARCH_STRING, INVALID_POST_TYPE, INVALID_SEARCH_QUERY, AuthTokenHeaderKey, HOPSortType, PostListType, PostType, RandomSample, ResponseKeys, ResponseMsg
+    DAILY_QUES_NOT_FOUND, DRAFT_NOT_FOUND, EMPTY_SEARCH_STRING, INVALID_POST_TYPE, INVALID_SEARCH_QUERY, AuthTokenHeaderKey, HOPSortType, PostListType, PostType, RandomSample, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -36,6 +36,7 @@ from schemas.s_posts import (
     PostBlogQuesResponse,
     # PostCreateRequest,
     PostBlogRequest,
+    PostPollDraftResponse,
     PostPollRequest,
     PostPollResponse,
     PostQuesDraftRequest,
@@ -44,7 +45,7 @@ from schemas.s_posts import (
 
 from database.models import (
     DailyQues, MemberProfileCurr, PollMemResult, Post,
-    PostDraft
+    PostDraft, PostStatusCurr
 )
 
 from app.posts import router
@@ -133,7 +134,7 @@ async def get_member_draft(
             )
             
         elif post_draft.type == PostType.Poll:
-            post_draft = PostPollResponse(
+            post_draft = PostPollDraftResponse(
                 post_id = str(post_draft.id),
                 member= member,
                 
@@ -180,7 +181,7 @@ async def get_member_questions(
         user: MemberProfileCurr = request.user
         
         if type == PostListType.random:
-            questions = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._5, RandomSample._5, PostType.Question)
+            questions = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._50, RandomSample._10, PostType.Question)
         elif type == PostListType.search:
             if not search:
                 raise Exception(INVALID_SEARCH_QUERY)
@@ -194,7 +195,7 @@ async def get_member_questions(
         for ques in questions:
             tags = get_post_tags_list(ques[0])
             
-            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3])
+            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3], user_id=ques[4])
             
             res_data.append(PostBlogQuesResponse(
                 post_id = str(ques[0].id),
@@ -244,7 +245,7 @@ async def get_member_question(
         ans_list = []
         
         for ans in answers:
-            member = get_member_dict_for_post_detail(ans[1], image=ans[2], alias= ans[3])
+            member = get_member_dict_for_post_detail(ans[1], image=ans[2], alias= ans[3], user_id= ans[4])
             
             ans_list.append(QuesAnsListResponse(
                 post_id = str(ans[0].id),
@@ -256,7 +257,7 @@ async def get_member_question(
             ))
         
         tags = get_post_tags_list(post[0])
-        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
+        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3], user_id= post[4])
         
         post = PostBlogQuesResponse(
             post_id = str(post[0].id),
@@ -302,7 +303,7 @@ async def get_member_polls(
         user: MemberProfileCurr = request.user
         
         if type == PostListType.random:
-            polls = await get_random_post_questions_polls_list(db, user.id, limit, 5, 5, PostType.Poll)
+            polls = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._50, RandomSample._5, PostType.Poll)
         elif type == PostListType.search:
             if not search:
                 raise Exception(INVALID_SEARCH_QUERY)
@@ -315,7 +316,7 @@ async def get_member_polls(
         for ques in polls:
             tags = get_post_tags_list(ques[0])
             
-            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3])
+            member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3], user_id= ques[4])
             
             res_data.append(PostBlogQuesResponse(
                 post_id = str(ques[0].id),
@@ -366,7 +367,7 @@ async def get_member_poll(
         except:
             post, poll_items = await get_post_poll(db, post_id, True)
 
-        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3])
+        member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3], user_id= post[4])
         
         tags = get_post_tags_list(post[0])
 
@@ -389,17 +390,23 @@ async def get_member_poll(
         
         
         poll_reveal = None
+        taken_at = None
         mem_poll = []
-        mem_poll_status = await get_member_poll_taken(db, user.id, post_id)
+        
+        mem_poll_status = await check_if_user_took_poll(db, user.id, post_id, False)
         
         if mem_poll_status:
-            if isinstance(mem_poll_status[0], datetime):
-                poll_reveal = mem_poll_status[0]
-            elif isinstance(mem_poll_status, list):
-                for poll in mem_poll_status:
+            
+            if mem_poll_status[1] == "take":
+                taken_at = mem_poll_status[0][0].take_at
+                _m_p = await get_member_poll_taken(db, user.id, post_id)
+                for poll in _m_p:
                     mem_poll.append(
                         str(poll[0].poll_item_id)
                     )
+            
+            if mem_poll_status[1] == "reveal":
+                poll_reveal = mem_poll_status[0][0].reveal_at
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
@@ -407,6 +414,7 @@ async def get_member_poll(
                 "poll": poll_data,
                 "reveal_at": poll_reveal,
                 "selected_choices": mem_poll,
+                "taken_at": taken_at
             }
         }
                     
@@ -454,9 +462,10 @@ async def hot_off_press(
 @router.get(
     "/cd/"
 )
-async def club_daily_answers(
+async def club_daily_questions_list(
     request: Request,
     response: Response,
+    query_date: str,
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
@@ -465,26 +474,36 @@ async def club_daily_answers(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_cd_answers(db, limit, offset)
+        query_date = datetime.strptime(query_date, '%Y-%m-%d').date()
+        
+        posts = await get_cd_ques_list(db, query_date, limit, offset)
         res_posts = []
 
         for post in posts:
-            
-            member = get_member_dict_for_post_detail(post[0], image=post[2], alias= post[3])
+            member = None
+            post_type = PostType.Question
+            ans_id = None
+            if post[3]:
+                ans_id = str(post[2])
+                post_type = PostType.Answer
+                _curr = PostStatusCurr(
+                    is_anonymous= post[-1],
+                )
+                member = get_member_dict_for_post_detail(_curr, image=post[-3], alias= post[-4], user_id= post[-2])
 
             res_posts.append(PostAnsResponse(
-                post_id = str(post[0].id),
+                post_id = ans_id,
                 member= member,
                 
-                type= PostType.Answer,
+                type= post_type,
                 
                 title= post[1],
-                body= post[0].answer,
+                body= post[3],
                 
-                post_ques_id=str(post[0].ques_id),
+                post_ques_id=str(post[0]),
                 is_for_daily= True,
                 
-                post_at= post[0].post_at
+                post_at= post[4]
             ))
 
         return {
@@ -499,6 +518,69 @@ async def club_daily_answers(
             ResponseKeys.DATA: None
         }
     
+
+@router.get(
+    "/cd/{post_id}"
+)
+async def club_daily_answers(
+    post_id: str,
+    query_date: str,
+    request: Request,
+    response: Response,
+    db:AsyncSession = Depends(get_db),
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        ques = await db.get(DailyQues, post_id)
+        if not ques:
+            raise Exception(DAILY_QUES_NOT_FOUND)
+        
+        query_date = datetime.strptime(query_date, '%Y-%m-%d').date()
+        
+        posts = await club_daily_post_answers(db, post_id, query_date, limit, offset)
+
+        res_posts = []
+        
+        for _post in posts:
+            
+            post = _post[0]
+            
+            member = {}
+
+            _curr = PostStatusCurr(
+                is_anonymous= post.is_anonymous,
+            )
+            member = get_member_dict_for_post_detail(_curr, image=_post[2], alias= _post[1], user_id= post.member_id)
+
+            res_posts.append(PostAnsResponse(
+                post_id = str(post.id),
+                member= member,
+                
+                type= PostType.Answer,
+                
+                title= ques.title,
+                body= post.answer,
+                
+                post_ques_id=str(post.ques_id),
+                is_for_daily= True,
+                
+                post_at= post.post_at
+            ))
+
+        return {
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            ResponseKeys.DATA: res_posts
+        }
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
 
 @router.get(
     "/mp/"
@@ -585,7 +667,7 @@ async def pure_random_posts(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_random_posts(db, 70, 5, limit)
+        posts = await get_random_posts(db, 7, 5, limit)
 
         res_posts = []
         if posts:
