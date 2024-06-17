@@ -1,4 +1,4 @@
-from sqlalchemy import select, func, desc, and_
+from sqlalchemy import join, select, func, desc, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -225,35 +225,75 @@ async def get_member_followers_following(
     offset: int,
     type: str = MemFollowType.Followers
 ):
+    
+    member_table = MemberProfileCurr #.__table__
+    follow_table = MmbFollowCurr #.__table__
+    
     if type == MemFollowType.Followers:
+        
+        # query = (
+        #     select(
+        #         MemberProfileCurr.alias, 
+        #         MemberProfileCurr.id, 
+        #         MemberProfileCurr.image, 
+        #         MemberProfileCurr.bio
+        #     )
+        #     .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
+        #     .where(MmbFollowCurr.followed_id == user_id)
+        #     .order_by(desc(MmbFollowCurr.follow_at))
+        #     .limit(limit)
+        #     .offset(offset)
+        # )
+        
         query = (
             select(
-                MemberProfileCurr.alias, 
-                MemberProfileCurr.id, 
-                MemberProfileCurr.image, 
-                MemberProfileCurr.bio
+                member_table.alias,
+                member_table.id,
+                member_table.image,
+                member_table.bio
             )
-            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
-            .where(MmbFollowCurr.followed_id == user_id)
-            .order_by(desc(MmbFollowCurr.follow_at))
+            .select_from(
+                join(member_table, follow_table, follow_table.following_id == member_table.id)
+            )
+            .where(follow_table.followed_id == user_id)
+            .order_by(desc(follow_table.follow_at))
             .limit(limit)
             .offset(offset)
         )
+        
         check_following = True
     elif type == MemFollowType.Following:
+        
+        # query = (
+        #     select(
+        #         MemberProfileCurr.alias, 
+        #         MemberProfileCurr.id, 
+        #         MemberProfileCurr.image, 
+        #         MemberProfileCurr.bio
+        #     )
+        #     .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id)
+        #     .where(MmbFollowCurr.following_id == user_id)
+        #     .order_by(desc(MmbFollowCurr.follow_at))
+        #     .limit(limit)
+        #     .offset(offset)
+        # )
+        
         query = (
             select(
-                MemberProfileCurr.alias, 
-                MemberProfileCurr.id, 
-                MemberProfileCurr.image, 
-                MemberProfileCurr.bio
+                member_table.alias,
+                member_table.id,
+                member_table.image,
+                member_table.bio
             )
-            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id)
-            .where(MmbFollowCurr.following_id == user_id)
-            .order_by(desc(MmbFollowCurr.follow_at))
+            .select_from(
+                join(member_table, follow_table, follow_table.followed_id == member_table.id)
+            )
+            .where(follow_table.following_id == user_id)
+            .order_by(desc(follow_table.follow_at))
             .limit(limit)
             .offset(offset)
         )
+        
         check_following = False
     else:
         raise Exception("Invalid type")

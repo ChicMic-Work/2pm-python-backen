@@ -4,6 +4,7 @@ from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
     get_follow_counts_search,
+    get_member_followers_following,
     get_searched_users,
     get_used_alias,
     get_user_posts_details_by_user_id,
@@ -568,12 +569,21 @@ async def get_member_followers(
     db:AsyncSession = Depends(get_db),
     limit: int = 10,
     offset: int = 0,
-    type: str = MemFollowType.Followers
+    type: str = MemFollowType.Followers,
+    user_id: str = None
 ):
     try:
         user: MemberProfileCurr = request.user
         
+        if not user_id:
+            user_id = user.id
         
+        user_data = await get_member_followers_following(db, user_id, limit, offset, type)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
     
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST

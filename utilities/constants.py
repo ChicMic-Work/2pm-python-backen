@@ -36,7 +36,7 @@ access_token_expire = timedelta(days=30)
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
-    '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/',
+    '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
     '/profile/follow/', 'profile/get/user/follows/', 
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
