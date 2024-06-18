@@ -221,7 +221,7 @@ async def get_searched_question_poll_list(
     if post_type == PostType.Question:
 
         answered_subquery = (
-            select(Post.id)
+            select(Post.assc_post_id)
             .where(
                 Post.type == PostType.Answer,
                 Post.member_id == member_id
