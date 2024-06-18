@@ -155,6 +155,7 @@ async def list_for_inviting_members(
     limit: int = 10,
     offset: int = 0,
     type: str = PostInviteListType.FOLLOWING,
+    search: str = "",
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db)
 ):
@@ -170,8 +171,7 @@ async def list_for_inviting_members(
         
         await check_post_curr_details(db, post.id)
         
-        # users = await get_member_followers_following(db, user.id, limit, offset, type)
-        res_data = await invite_member_to_post_list(db, post, user.id, limit, offset, type)
+        res_data = await invite_member_to_post_list(db, post, user.id, limit, offset, type, search.strip())
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
