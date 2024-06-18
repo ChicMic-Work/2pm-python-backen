@@ -1,6 +1,6 @@
 import re
 from uuid import UUID
-from sqlalchemy import select, desc, text
+from sqlalchemy import or_, select, desc, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,7 @@ from unidecode import unidecode
 from typing import List
 
 from database.models import MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, Post, PostStatusCurr, ViewPostScore
-from utilities.constants import PaginationLimit, PostType
+from utilities.constants import PGROONGA_OPERATOR, PaginationLimit, PostType
 
 def unaccent(s):
     """
@@ -118,6 +118,38 @@ most_popular_base_query = (
     .join(PostStatusCurr, PostStatusCurr.post_id == ViewPostScore.post_id)
     .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
 )
+
+search_post_base_query = (
+    select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
+    .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+    .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+    .where(
+        or_(
+            text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
+            text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
+            text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
+            text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
+            text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
+        ),
+        PostStatusCurr.is_blocked == False,
+        PostStatusCurr.is_deleted == False,
+    )
+)
+
+async def search_post_base_func(
+    conditions: dict = {}, 
+    additional_conditions: List = []
+):
+    query = search_post_base_query
+    for table_column, value in conditions.items():
+        table, column = table_column.split(".")
+        mapped_table = globals()[table]
+        query = query.where(getattr(mapped_table, column) == value)
+
+    for filter_condition in additional_conditions:
+        query = query.where(filter_condition)
+    
+    return query
 
 async def get_most_popular_base_func(
     conditions: dict = {}, 
@@ -246,3 +278,5 @@ async def get_random_posts_with_details(session: AsyncSession, sample_size: int)
 
     result = await session.execute(stmt)
     return result.all()
+
+

@@ -1,5 +1,5 @@
 import random
-from sqlalchemy import select, asc, delete, desc, func, and_, or_, text, Date, join
+from sqlalchemy import exists, select, asc, delete, desc, func, and_, or_, text, Date, join
 from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import operators
@@ -12,7 +12,7 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse, PostPollResponse
-from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts
+from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts, search_post_base_func
 from utilities.constants import (
     INVALID_SORT_TYPE, PGROONGA_OPERATOR, POST_BLOCKED, POST_DELETED, POST_NOT_FOUND, AddType, ChoicesType, HOPSortType, PaginationLimit, PostType, current_datetime
 )
@@ -133,6 +133,23 @@ async def get_poll_drafts(
 
 ## ANSWER A QUESTION ##
 
+async def check_if_user_answered_question(
+    db: AsyncSession,
+    member_id: UUID,
+    post_id: UUID
+):
+    query = (
+        select(exists().where(
+            Post.member_id == member_id,
+            Post.type == PostType.Answer,
+            Post.assc_post_id == post_id
+        ))
+    )
+    results = await db.execute(query)
+    exists_ = results.scalar()
+
+    return exists_
+
 async def get_post_questions_list(
     db: AsyncSession,
     member_id: UUID,
@@ -200,27 +217,57 @@ async def get_searched_question_poll_list(
     offset: int,
     post_type: str
 ):
+    
+    if post_type == PostType.Question:
 
-    query = (
-            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
-            .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
-            .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+        answered_subquery = (
+            select(Post.id)
             .where(
-                or_(
-                    text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
-                ),
-                PostStatusCurr.is_blocked == False,
-                PostStatusCurr.is_deleted == False,
-                Post.type == post_type
+                Post.type == PostType.Answer,
+                Post.member_id == member_id
             )
-            .order_by(desc(Post.post_at))
-            .limit(limit)
-            .offset(offset)
+            .subquery()
         )
+
+        filters = [
+            Post.id.notin_(answered_subquery)
+        ]
+    elif post_type == PostType.Poll:
+        
+        poll_taken_subquery = (
+            select(PollMemTake.post_id)
+            .where(
+                PollMemTake.member_id == member_id,               
+            )
+            .subquery()
+        )
+            
+        poll_reveal_subquery = (
+            select(PollMemReveal.post_id)
+            .where(
+                PollMemReveal.member_id == member_id,               
+            )
+            .subquery()
+        )
+        
+        filters = [
+            Post.id.notin_(poll_taken_subquery),
+            Post.id.notin_(poll_reveal_subquery)
+        ]
+        
+    else:
+        raise Exception("Invalid Post Type")
+    
+    
+    where_clause = {
+        "Post.type": post_type,
+    }
+    
+    
+    query = await search_post_base_func(where_clause, filters)
+
+    query = query.order_by(desc(Post.post_at)).limit(limit).offset(offset)
+    
 
     result = await db.execute(query, {'search': search})
     posts = result.fetchall()
@@ -513,25 +560,29 @@ async def get_searched_posts(
     offset: int
 ):
 
-    query = (
-            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
-            .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
-            .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
-            .where(
-                or_(
-                    text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
-                    text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
-                ),
-                PostStatusCurr.is_blocked == False,
-                PostStatusCurr.is_deleted == False
-            )
-            .order_by(desc(Post.post_at))
-            .limit(limit)
-            .offset(offset)
-        )
+    query = await search_post_base_func()
+    
+    query = query.order_by(desc(Post.post_at)).limit(limit).offset(offset)
+    
+    # query = (
+    #         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
+    #         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+    #         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+    #         .where(
+    #             or_(
+    #                 text(f"pst.post_posted.tag1_std {PGROONGA_OPERATOR} :search"),
+    #                 text(f"pst.post_posted.tag2_std {PGROONGA_OPERATOR} :search"),
+    #                 text(f"pst.post_posted.tag3_std {PGROONGA_OPERATOR} :search"),
+    #                 text(f"pst.post_posted.post_title {PGROONGA_OPERATOR} :search"),
+    #                 text(f"pst.post_posted.post_detail {PGROONGA_OPERATOR} :search"),
+    #             ),
+    #             PostStatusCurr.is_blocked == False,
+    #             PostStatusCurr.is_deleted == False
+    #         )
+    #         .order_by(desc(Post.post_at))
+    #         .limit(limit)
+    #         .offset(offset)
+    #     )
 
     result = await db.execute(query, {'search': search})
     posts = result.fetchall()

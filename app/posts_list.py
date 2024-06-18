@@ -16,7 +16,7 @@ from crud.c_posts import (
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
 from crud.c_posts_actions import check_if_user_took_poll
-from crud.c_posts_list import club_daily_post_answers, convert_all_post_list_for_response, get_cd_ques_list, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
+from crud.c_posts_list import check_if_user_answered_question, club_daily_post_answers, convert_all_post_list_for_response, convert_poll_post_for_response, get_cd_ques_list, get_hop_posts, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -183,9 +183,9 @@ async def get_member_questions(
         if type == PostListType.random:
             questions = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._50, RandomSample._10, PostType.Question)
         elif type == PostListType.search:
-            if not search:
+            if not search.strip():
                 raise Exception(INVALID_SEARCH_QUERY)
-            questions = await get_searched_question_poll_list(db, user.id, search ,limit, offset, PostType.Question)
+            questions = await get_searched_question_poll_list(db, user.id, search.strip() ,limit, offset, PostType.Question)
         else:
             questions = await get_post_questions_list(db, user.id, limit, offset)
         
@@ -272,9 +272,15 @@ async def get_member_question(
             post_at= post[0].post_at
         )
         
+        is_answered = await check_if_user_answered_question(db, user.id, post_id)
+        
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
-            ResponseKeys.DATA: {"ans_list": ans_list, "post": post}
+            ResponseKeys.DATA: {
+                "ans_list": ans_list, 
+                "post": post,
+                "is_answered": True if is_answered == True else False
+            }
         }
         
     except Exception as exc:
@@ -303,11 +309,11 @@ async def get_member_polls(
         user: MemberProfileCurr = request.user
         
         if type == PostListType.random:
-            polls = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._50, RandomSample._5, PostType.Poll)
+            polls = await get_random_post_questions_polls_list(db, user.id, limit, RandomSample._50, RandomSample._10, PostType.Poll)
         elif type == PostListType.search:
-            if not search:
+            if not search.strip():
                 raise Exception(INVALID_SEARCH_QUERY)
-            polls = await get_searched_question_poll_list(db, user.id, search, limit, offset, PostType.Poll)
+            polls = await get_searched_question_poll_list(db, user.id, search.strip(), limit, offset, PostType.Poll)
         else:
             polls = await get_post_polls_list(db, user.id, limit, offset)
         
@@ -318,20 +324,7 @@ async def get_member_polls(
             
             member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3], user_id= ques[4])
             
-            res_data.append(PostBlogQuesResponse(
-                post_id = str(ques[0].id),
-                member= member,
-                
-                title= ques[0].title,
-                body= ques[0].body,
-                type= ques[0].type,
-                
-                interest_area_id= ques[0].interest_id,
-                language_id= ques[0].lang_id,
-                
-                post_at= ques[0].post_at,
-                tags= tags
-            ))
+            res_data.append(await convert_poll_post_for_response(db, ques[0], member, tags))
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,

@@ -7,6 +7,7 @@ from uuid_extensions import uuid7
 
 from typing import List, Tuple
 
+from crud.c_profile import get_follow_counts_search
 from utilities.constants import (
     INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostInviteListType, PostType
 )
@@ -222,80 +223,108 @@ async def invite_member_to_post_list(
     type: str = PostInviteListType.FOLLOWERS
 ):
 
+    if post.type == PostType.Question:
+            
+        invited_subquery = (
+            select(QuesInvite.invited_mbr_id)
+            .where(QuesInvite.ques_post_id == post.id)
+            .subquery()
+        )
+        
+        answered_subquery = (
+            select(Post.member_id)
+            .where(Post.assc_post_id == post.id)
+            .subquery()
+        )
+        
+        filters = [
+            MemberProfileCurr.id.notin_(invited_subquery)
+        ]
+            
+    else: 
+        
+        invited_subquery = (
+            select(PollInvite.invited_mbr_id)
+            .where(PollInvite.poll_post_id == post.id)
+            .subquery()
+        )
+        
+        poll_taken_subquery = (
+            select(PollMemTake.member_id)
+            .where(
+                PollMemTake.post_id == post.id,               
+            )
+            .subquery()
+        )
+        
+        poll_reveal_subquery = (
+            select(PollMemReveal.member_id)
+            .where(
+                PollMemReveal.post_id == post.id,               
+            )
+            .subquery()
+        )
+        
+        filters = [
+            MemberProfileCurr.id.notin_(poll_taken_subquery),
+            MemberProfileCurr.id.notin_(poll_reveal_subquery)
+        ]
+
+    base_query = (
+        select(
+            MemberProfileCurr.alias,
+            MemberProfileCurr.id,
+            MemberProfileCurr.image,
+            MemberProfileCurr.bio,
+            exists(invited_subquery.c.invited_mbr_id)
+                .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
+                .label("invited_already")
+        )
+    )
+
     if type == PostInviteListType.FOLLOWERS:
         
-        if post.type == PostType.Question:
-            
-            answered_subquery = (
-                select(Post.member_id)
-                .where(Post.assc_post_id == post.id)
-                .subquery()
+        query = base_query.join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.following_id).where(
+                MmbFollowCurr.followed_id == user_id
             )
+        
+        check_following = True
             
-            invited_subquery = (
-                select(QuesInvite.invited_mbr_id)
-                .where(QuesInvite.ques_post_id == post.id)
-                .subquery()
-            )
-            
-        else: 
-            
-            invited_subquery = (
-                select(PollInvite.invited_mbr_id)
-                .where(PollInvite.poll_post_id == post.id)
-                .subquery()
-            )
-            
-        query = (
-            select(
-                MemberProfileCurr.alias,
-                MemberProfileCurr.id,
-                MemberProfileCurr.image,
-                MemberProfileCurr.bio,
-                exists(invited_subquery.c.invited_mbr_id)
-                    .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
-                    .label("invited_already")
-            )
-            .join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
-            .where(
-                MmbFollowCurr.followed_id == user_id,
-                MemberProfileCurr.id.notin_(answered_subquery)
-            )
-            .order_by(desc(MmbFollowCurr.follow_at))
-            .limit(limit)
-            .offset(offset)
+    elif type == PostInviteListType.FOLLOWING:
+        
+        query = base_query.join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id).where(
+            MmbFollowCurr.following_id == user_id
         )
         
-        query = (
-            select(
-                MemberProfileCurr.alias, 
-                MemberProfileCurr.id, 
-                MemberProfileCurr.image, 
-                MemberProfileCurr.bio
-            )
-            .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
-            .where(MmbFollowCurr.followed_id == user_id)
-            .order_by(desc(MmbFollowCurr.follow_at))
-            .limit(limit)
-            .offset(offset)
-        )
-        #exclude user who have already answered this post
+        check_following = False
+    
+    else:
+        raise Exception("INVALID_INVITE_LIST_TYPE")
+    
+    
+    for filter in filters:
+        query = query.where(filter)
         
-        res = await db.execute(query)
-        users = res.fetchall()
+    query = query.order_by(desc(MmbFollowCurr.follow_at)).limit(limit).offset(offset)
+    
+    res = await db.execute(query)
+    users = res.fetchall()
+    
+    users_data = []
+    
+    for user in users:
         
-        users_data = []
-        for user in users:
-            pass
-            users_data.append({
-                "id": user[1],
-                "alias": user[0],
-                "image": user[2],
-                "bio": user[3],
-                # "invited_already": ,
-                
-            })
+        follow_counts = await get_follow_counts_search(db, user[1], user_id, check_following)
         
-        
-    elif type == PostInviteListType.FOLLOWERS:
-        pass
+        users_data.append({
+            "id": user[1],
+            "alias": user[0],
+            "image": user[2],
+            "bio": user[3],
+            "invited_already": user[-1],
+            "followers_count": follow_counts["followers_count"],
+            "following_count": follow_counts["following_count"],
+            "is_following": follow_counts["is_following"],
+        })
+    
+    return users_data
