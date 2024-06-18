@@ -660,7 +660,7 @@ async def pure_random_posts(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_random_posts(db, 7, 5, limit)
+        posts = await get_random_posts(db, RandomSample._50, RandomSample._10, limit)
 
         res_posts = []
         if posts:
