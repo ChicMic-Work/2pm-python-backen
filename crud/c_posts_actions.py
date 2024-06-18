@@ -276,10 +276,10 @@ async def invite_member_to_post_list(
             MemberProfileCurr.id,
             MemberProfileCurr.image,
             MemberProfileCurr.bio,
+            MmbFollowCurr.follow_at,
             exists(invited_subquery.c.invited_mbr_id)
                 .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
                 .label("invited_already"),
-            MmbFollowCurr.follow_at
         )
     )
     
@@ -304,7 +304,7 @@ async def invite_member_to_post_list(
         for filter in filters:
             combined_query = combined_query.where(filter)
 
-        query = combined_query.order_by(desc(MmbFollowCurr.follow_at)).limit(limit).offset(offset)
+        query = combined_query.distinct(MemberProfileCurr.id, MmbFollowCurr.follow_at).order_by(desc(MmbFollowCurr.follow_at)).limit(limit).offset(offset)
         
         check_following = True
         

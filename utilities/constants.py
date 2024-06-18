@@ -97,6 +97,7 @@ class PaginationLimit:
 
     random = 30
     most_popular = 30
+    invited_images = 6
 
 class SocialType:
     Google = 0

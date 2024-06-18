@@ -322,6 +322,13 @@ async def get_member_polls(
             if not search.strip():
                 raise Exception(INVALID_SEARCH_QUERY)
             polls = await get_searched_question_poll_list(db, user.id, search.strip(), limit, offset, PostType.Poll)
+        elif type == PostListType.invites:
+            invited = await get_invited_question_poll_list(db, user.id, limit, offset, PostType.Poll)
+            
+            return {
+                ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+                ResponseKeys.DATA: invited
+            }
         else:
             polls = await get_post_polls_list(db, user.id, limit, offset)
         

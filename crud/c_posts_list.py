@@ -287,24 +287,113 @@ async def invited_question_poll_response(
         
         for invite in invited:
             
-            query = (
+            post_query = (
                 select(
-                    Post
+                    Post.title,
+                    Post.body,
+                    Post.post_at,
+                    MemberProfileCurr.alias,
+                    MemberProfileCurr.image,
+                    MemberProfileCurr.id
                 )
+                .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+                .where(Post.id == invite[0])
             )
             
+            results = await db.execute(post_query)
+            post = results.fetchone()
             
+            image_query = (
+                select(MemberProfileCurr.image)
+                .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
+                .where(QuesInvite.ques_post_id == invite[0])
+                .limit(PaginationLimit.invited_images)
+            )
+
+            results = await db.execute(image_query)
+            images = results.fetchall()
+
+
             inv_dict = {
                 "count": invite[1],
+                "images": [img[0] for img in images]
             }
-            
-            InvitedQuesResponse(
-                post_id=str(invite[0]),
-                
+
+            _curr = PostStatusCurr(
+                is_anonymous=invite[2]
             )
+
+            member = get_member_dict_for_post_detail(_curr, image=post[-2], alias=post[-3], user_id=post[-1])
+            
+            res.append(InvitedQuesResponse(
+                post_id=str(invite[0]),
+                member=member,
+
+                type= PostType.Question,
+
+                title= post[0],
+                body= post[1],
+                post_at= post[2],
+                
+                invited=inv_dict
+            ))
         
     elif type == PostType.Poll:
-        pass
+
+        for invite in invited:
+
+            post_query = (
+                select(
+                    Post.title,
+                    Post.post_at,
+                    MemberProfileCurr.alias,
+                    MemberProfileCurr.image,
+                    MemberProfileCurr.id
+                )
+                .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+                .where(Post.id == invite[0])
+            )
+
+            results = await db.execute(post_query)
+            post = results.fetchone()
+
+            body = (await db.execute(select(PollQues.ques_text).where(PollQues.post_id == invite[0], PollQues.qstn_seq_num == 1, PollQues.ans_seq_letter == "A"))).scalar()
+            
+            image_query = (
+                select(MemberProfileCurr.image)
+                .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
+                .where(QuesInvite.ques_post_id == invite[0])
+                .limit(PaginationLimit.invited_images)
+            )
+
+            results = await db.execute(image_query)
+            images = results.fetchall()
+
+            inv_dict = {
+                "count": invite[1],
+                "images": [img[0] for img in images]
+            }
+
+            _curr = PostStatusCurr(
+                is_anonymous=invite[2]
+            )
+
+            member = get_member_dict_for_post_detail(_curr, image=post[-2], alias=post[-3], user_id=post[-1])
+            
+            res.append(InvitedQuesResponse(
+                post_id=str(invite[0]),
+                member=member,
+
+                type= PostType.Question,
+
+                title= post[0],
+                body= body,
+                post_at= post[1],
+                
+                invited=inv_dict
+            ))
+
+    return res
     
 
 async def get_invited_question_poll_list(
