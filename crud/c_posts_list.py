@@ -11,7 +11,7 @@ from uuid_extensions import uuid7
 
 from typing import List, Tuple
 
-from schemas.s_posts import PostAnsResponse, PostBlogQuesResponse, PostPollResponse
+from schemas.s_posts import InvitedQuesResponse, PostAnsResponse, PostBlogQuesResponse, PostPollResponse
 from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts, search_post_base_func
 from utilities.constants import (
     INVALID_SORT_TYPE, PGROONGA_OPERATOR, POST_BLOCKED, POST_DELETED, POST_NOT_FOUND, AddType, ChoicesType, HOPSortType, PaginationLimit, PostType, current_datetime
@@ -20,8 +20,8 @@ from utilities.constants import (
 from datetime import datetime, timedelta
 
 from database.models import (
-    DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist, ViewPostScore
+    DailyAns, DailyQues, MemberProfileCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    PostDraft, PostStatusCurr, PostStatusHist, QuesInvite, ViewPostScore
 )
 from uuid_extensions import uuid7
 
@@ -185,7 +185,7 @@ async def get_post_questions_list(
     return questions
 
     
-
+#TAKE POLL AND QUESTION
 
 async def get_random_post_questions_polls_list(
     db: AsyncSession,
@@ -273,6 +273,97 @@ async def get_searched_question_poll_list(
     posts = result.fetchall()
     
     return posts
+
+
+async def invited_question_poll_response(
+    db: AsyncSession,
+    invited: List[Tuple[UUID, int, bool]],
+    type: str
+):
+    
+    res = []
+    
+    if type == PostType.Question:
+        
+        for invite in invited:
+            
+            query = (
+                select(
+                    Post
+                )
+            )
+            
+            
+            inv_dict = {
+                "count": invite[1],
+            }
+            
+            InvitedQuesResponse(
+                post_id=str(invite[0]),
+                
+            )
+        
+    elif type == PostType.Poll:
+        pass
+    
+
+async def get_invited_question_poll_list(
+    db: AsyncSession,
+    member_id: UUID,
+    limit: int,
+    offset: int,
+    post_type: str
+):
+    
+    if post_type == PostType.Question:
+        query = (
+            select(
+                QuesInvite.ques_post_id,
+                func.count(func.distinct(QuesInvite.inviting_mbr_id)).label('invites_count'),
+                PostStatusCurr.is_anonymous
+            )
+            .join(PostStatusCurr, QuesInvite.ques_post_id == PostStatusCurr.post_id)
+            .where(
+                QuesInvite.invited_mbr_id == member_id,
+                PostStatusCurr.is_deleted == False,
+                PostStatusCurr.is_blocked == False
+            )
+            .group_by(QuesInvite.ques_post_id)
+        )
+        
+    elif post_type == PostType.Poll:
+        query = (
+            select(
+                PollInvite.poll_post_id,
+                func.count(func.distinct(PollInvite.inviting_mbr_id)).label('invites_count')       ,
+                PostStatusCurr.is_anonymous
+            )
+            .join(PostStatusCurr, PollInvite.poll_post_id == PostStatusCurr.post_id)
+            .where(
+                PollInvite.invited_mbr_id == member_id,
+                PostStatusCurr.is_deleted == False,
+                PostStatusCurr.is_blocked == False
+            )
+            .group_by(PollInvite.poll_post_id)
+        )
+        
+    else:
+        raise Exception("Invalid Post Type")
+    
+    query = query.limit(limit).offset(offset)
+    
+    results = await db.execute(query)
+    posts = results.fetchall()
+    
+    if posts:
+        invited = await invited_question_poll_response(posts, post_type)
+    else:
+        invited = []
+        
+    return invited
+
+
+
 
 
 async def get_post_question(

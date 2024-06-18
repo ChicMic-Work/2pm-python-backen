@@ -151,6 +151,17 @@ class PostBlogQuesResponse(BaseModel):
     post_at: AwareDatetime
 
 
+class InvitedQuesResponse(BaseModel):
+
+    post_id: str
+    member: dict
+    
+    type: str
+    title: str
+    body: str
+
+    post_at: AwareDatetime
+    invited: dict
 
 
 
