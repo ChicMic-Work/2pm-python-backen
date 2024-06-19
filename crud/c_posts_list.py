@@ -296,6 +296,7 @@ async def invited_question_poll_response(
                     MemberProfileCurr.image,
                     MemberProfileCurr.id
                 )
+                .select_from(Post)
                 .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
                 .where(Post.id == invite[0])
             )
@@ -305,6 +306,7 @@ async def invited_question_poll_response(
             
             image_query = (
                 select(MemberProfileCurr.image)
+                .select_from(QuesInvite)
                 .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
                 .where(QuesInvite.ques_post_id == invite[0])
                 .limit(PaginationLimit.invited_images)
@@ -350,6 +352,7 @@ async def invited_question_poll_response(
                     MemberProfileCurr.image,
                     MemberProfileCurr.id
                 )
+                .select_from(Post)
                 .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
                 .where(Post.id == invite[0])
             )
@@ -361,8 +364,9 @@ async def invited_question_poll_response(
             
             image_query = (
                 select(MemberProfileCurr.image)
-                .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
-                .where(QuesInvite.ques_post_id == invite[0])
+                .select_from(PollInvite)
+                .join(MemberProfileCurr, MemberProfileCurr.id == PollInvite.inviting_mbr_id)
+                .where(PollInvite.poll_post_id == invite[0])
                 .limit(PaginationLimit.invited_images)
             )
 
@@ -384,7 +388,7 @@ async def invited_question_poll_response(
                 post_id=str(invite[0]),
                 member=member,
 
-                type= PostType.Question,
+                type= PostType.Poll,
 
                 title= post[0],
                 body= body,
@@ -417,7 +421,7 @@ async def get_invited_question_poll_list(
                 PostStatusCurr.is_deleted == False,
                 PostStatusCurr.is_blocked == False
             )
-            .group_by(QuesInvite.ques_post_id)
+            .group_by(QuesInvite.ques_post_id, PostStatusCurr.is_anonymous)
         )
         
     elif post_type == PostType.Poll:
@@ -433,7 +437,7 @@ async def get_invited_question_poll_list(
                 PostStatusCurr.is_deleted == False,
                 PostStatusCurr.is_blocked == False
             )
-            .group_by(PollInvite.poll_post_id)
+            .group_by(PollInvite.poll_post_id, PostStatusCurr.is_anonymous)
         )
         
     else:
@@ -445,7 +449,7 @@ async def get_invited_question_poll_list(
     posts = results.fetchall()
     
     if posts:
-        invited = await invited_question_poll_response(posts, post_type)
+        invited = await invited_question_poll_response(db, posts, post_type)
     else:
         invited = []
         

@@ -1,5 +1,5 @@
 from pydantic import (
-    BaseModel, Field
+    BaseModel, Field, AwareDatetime
 )
 
 from typing import (
@@ -9,3 +9,20 @@ from uuid import UUID
 
 class MemTakePollReq(BaseModel):
     poll_item_ids: List[UUID] 
+    
+class MemInviteListBase(BaseModel):
+    
+    
+    id: UUID
+    alias: str
+    image: str | None
+    
+    followers_count: int
+    following_count: int
+    
+    invite_at: AwareDatetime   
+    
+
+class MemInvSentList(MemInviteListBase):
+    
+    answer_id: UUID | None

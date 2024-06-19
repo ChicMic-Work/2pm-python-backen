@@ -101,9 +101,13 @@ async def get_follow_counts_search(
         "following_count": following_count
     } 
     
-    if not check_is_following:
+    if not check_is_following and searching_user_id != user_id:
         result_data["is_following"] = True
         result_data["my_profile"] = False
+        return result_data
+    elif not check_is_following and searching_user_id == user_id:
+        result_data["is_following"] = False
+        result_data["my_profile"] = True
         return result_data
     
     if searching_user_id == user_id:
@@ -121,11 +125,10 @@ async def get_follow_counts_search(
     is_following_result = await db.execute(is_following_query)
     
     if is_following_result.scalar():
-        is_following = True
+        result_data["is_following"] = True
     else:
-        is_following = False
+        result_data["is_following"] = False
     
-    result_data["is_following"] = is_following
     result_data["my_profile"] = False
     
     return result_data
@@ -221,42 +224,26 @@ async def get_user_posts_details_by_user_id(
 async def get_member_followers_following(
     db: AsyncSession,
     user_id: UUID,
+    searching_user_id: UUID,
     limit: int,
     offset: int,
     type: str = MemFollowType.Followers
 ):
     
-    member_table = MemberProfileCurr #.__table__
-    follow_table = MmbFollowCurr #.__table__
-    
     if type == MemFollowType.Followers:
-        
-        # query = (
-        #     select(
-        #         MemberProfileCurr.alias, 
-        #         MemberProfileCurr.id, 
-        #         MemberProfileCurr.image, 
-        #         MemberProfileCurr.bio
-        #     )
-        #     .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
-        #     .where(MmbFollowCurr.followed_id == user_id)
-        #     .order_by(desc(MmbFollowCurr.follow_at))
-        #     .limit(limit)
-        #     .offset(offset)
-        # )
         
         query = (
             select(
-                member_table.alias,
-                member_table.id,
-                member_table.image,
-                member_table.bio
+                MemberProfileCurr.alias,
+                MemberProfileCurr.id,
+                MemberProfileCurr.image,
+                MemberProfileCurr.bio
             )
             .select_from(
-                join(member_table, follow_table, follow_table.following_id == member_table.id)
+                join(MemberProfileCurr, MmbFollowCurr, MmbFollowCurr.following_id == MemberProfileCurr.id)
             )
-            .where(follow_table.followed_id == user_id)
-            .order_by(desc(follow_table.follow_at))
+            .where(MmbFollowCurr.followed_id == user_id)
+            .order_by(desc(MmbFollowCurr.follow_at))
             .limit(limit)
             .offset(offset)
         )
@@ -264,32 +251,18 @@ async def get_member_followers_following(
         check_following = True
     elif type == MemFollowType.Following:
         
-        # query = (
-        #     select(
-        #         MemberProfileCurr.alias, 
-        #         MemberProfileCurr.id, 
-        #         MemberProfileCurr.image, 
-        #         MemberProfileCurr.bio
-        #     )
-        #     .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id)
-        #     .where(MmbFollowCurr.following_id == user_id)
-        #     .order_by(desc(MmbFollowCurr.follow_at))
-        #     .limit(limit)
-        #     .offset(offset)
-        # )
-        
         query = (
             select(
-                member_table.alias,
-                member_table.id,
-                member_table.image,
-                member_table.bio
+                MemberProfileCurr.alias,
+                MemberProfileCurr.id,
+                MemberProfileCurr.image,
+                MemberProfileCurr.bio
             )
             .select_from(
-                join(member_table, follow_table, follow_table.followed_id == member_table.id)
+                join(MemberProfileCurr, MmbFollowCurr, MmbFollowCurr.followed_id == MemberProfileCurr.id)
             )
-            .where(follow_table.following_id == user_id)
-            .order_by(desc(follow_table.follow_at))
+            .where(MmbFollowCurr.following_id == user_id)
+            .order_by(desc(MmbFollowCurr.follow_at))
             .limit(limit)
             .offset(offset)
         )
@@ -303,7 +276,7 @@ async def get_member_followers_following(
     
     user_data = []
     for user in users:
-        follow_counts = await get_follow_counts_search(db, user[1], user_id, check_following)
+        follow_counts = await get_follow_counts_search(db, user[1], searching_user_id, check_following)
         
         user_data.append({
             "alias": user[0],

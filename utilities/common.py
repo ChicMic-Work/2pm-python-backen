@@ -192,7 +192,7 @@ async def get_random_questions_polls_with_details(
             select(Post.assc_post_id)
             .where(
                 Post.member_id == member_id,
-                Post.type == post_type,
+                Post.type == PostType.Answer,
             )
         )
         results = await session.execute(answered_post_ids_query)

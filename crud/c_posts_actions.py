@@ -8,6 +8,7 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from crud.c_profile import get_follow_counts_search
+from schemas.s_posts_actions import MemInvSentList, MemInviteListBase
 from utilities.constants import (
     INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostInviteListType, PostType
 )
@@ -276,7 +277,7 @@ async def invite_member_to_post_list(
             MemberProfileCurr.id,
             MemberProfileCurr.image,
             MemberProfileCurr.bio,
-            MmbFollowCurr.follow_at,
+            # MmbFollowCurr.follow_at,
             exists(invited_subquery.c.invited_mbr_id)
                 .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
                 .label("invited_already"),
@@ -304,7 +305,7 @@ async def invite_member_to_post_list(
         for filter in filters:
             combined_query = combined_query.where(filter)
 
-        query = combined_query.distinct(MemberProfileCurr.id, MmbFollowCurr.follow_at).order_by(desc(MmbFollowCurr.follow_at)).limit(limit).offset(offset)
+        query = combined_query.distinct(MemberProfileCurr.id).limit(limit).offset(offset) #.order_by(MemberProfileCurr.id, MmbFollowCurr.follow_at.desc())
         
         check_following = True
         
@@ -329,7 +330,7 @@ async def invite_member_to_post_list(
         for filter in filters:
             query = query.where(filter)
 
-        query = query.order_by(desc(MmbFollowCurr.follow_at)).limit(limit).offset(offset)
+        query = query.limit(limit).offset(offset) #.order_by(desc(MmbFollowCurr.follow_at))
     
     
     res = await db.execute(query)
@@ -346,10 +347,167 @@ async def invite_member_to_post_list(
             "alias": user[0],
             "image": user[2],
             "bio": user[3],
-            "invited_already": user[-2],
+            "invited_already": user[-1],
             "followers_count": follow_counts["followers_count"],
             "following_count": follow_counts["following_count"],
             "is_following": follow_counts["is_following"],
         })
     
     return users_data
+
+
+
+async def invite_mem_post_response(
+    db: AsyncSession,
+    invites,
+    post: Post,
+    invite_type: str   
+):
+    
+    res_data = []
+    
+    if invite_type == PostInviteListType.RECEIVED:
+        
+        for invite in invites:
+            
+            query = (
+                select(
+                    MemberProfileCurr.alias,
+                    MemberProfileCurr.image
+                )
+                .where(MemberProfileCurr.id == invite[0])
+            )
+            result = await db.execute(query)
+            user = result.fetchone()
+            
+            follow_dict = get_follow_counts_search(db, invite[0], None, False)
+            
+            res_data.append(MemInviteListBase(
+                id = invite[0],
+                alias = user[0],
+                image = user[1],
+                followers_count= follow_dict["followers_count"],
+                following_count= follow_dict["following_count"],
+                invite_at = invite[1]
+            ))
+            
+    elif invite_type == PostInviteListType.SENT:
+        
+        for invite in invites:
+            
+            query = (
+                    select(
+                        MemberProfileCurr.alias,
+                        MemberProfileCurr.image
+                    )
+                    .where(MemberProfileCurr.id == invite[0])
+                )
+            result = await db.execute(query)
+            user = result.fetchone()   
+            
+            follow_dict = get_follow_counts_search(db, invite[0], None, False)
+            
+            res_data.append(MemInvSentList(
+                id = invite[0],
+                alias = user[0],
+                image = user[1],
+                invite_at = invite[1],
+                answer_id = invite[2] if post.type== PostType.Question else None,
+                followers_count= follow_dict["followers_count"],
+                following_count= follow_dict["following_count"]
+            ))
+    
+    return res_data
+    
+
+
+
+async def invite_mem_post_list(
+    db: AsyncSession,
+    post: Post,
+    user_id: UUID,
+    limit: int,
+    offset: int,
+    type: str = PostInviteListType.RECEIVED,
+):
+    
+    if type == PostInviteListType.RECEIVED:
+        
+        if post.type == PostType.Question:
+        
+            query = (
+                select(
+                    QuesInvite.inviting_mbr_id,
+                    QuesInvite.invite_at
+                )
+                .where(
+                    QuesInvite.ques_post_id == post.id,
+                    QuesInvite.invited_mbr_id == user_id
+                )
+            )
+        
+        elif post.type == PostType.Poll:
+        
+            query = (
+                select(
+                    PollInvite.inviting_mbr_id,
+                    PollInvite.invite_at
+                )
+                .where(
+                    PollInvite.poll_post_id == post.id,
+                    PollInvite.invited_mbr_id == user_id
+                )
+            )
+        
+    elif type == PostInviteListType.SENT:
+        
+        if post.type == PostType.Question:
+        
+            query = (
+                select(
+                    QuesInvite.invited_mbr_id,
+                    QuesInvite.invite_at,
+                    QuesInvite.ans_post_id
+                )
+                .where(
+                    QuesInvite.ques_post_id == post.id,
+                    QuesInvite.inviting_mbr_id == user_id
+                )
+            )
+        
+        elif post.type == PostType.Poll:
+        
+            query = (
+                select(
+                    PollInvite.invited_mbr_id,
+                    PollInvite.invite_at,
+                )
+                .where(
+                    PollInvite.poll_post_id == post.id,
+                    PollInvite.inviting_mbr_id == user_id
+                )
+            )
+            
+    else:
+        raise Exception("INVALID_INVITE_LIST_TYPE")
+    
+    res = await db.execute(query)
+    invites = res.fetchall()
+    res_data = []
+    
+    if invites:
+        res_data = await invite_mem_post_response(db, invites, post, type)
+        
+    
+    return res_data
+
+
+
+
+
+
+#FOLLOW POSTS 
+async def member_follow_ques_poll(
+
+):
+    pass

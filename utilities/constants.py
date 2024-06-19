@@ -151,6 +151,8 @@ DAILY_QUES_NOT_FOUND = "Daily question not found"
 QUES_NOT_FOUND = "Question not found"
 DRAFT_NOT_FOUND = "Draft not found"
 
+CANT_FOLLOW_POST = "Can't follow post"
+CANT_INVITE_YOURSELF = "Can't invite yourself"
 CANT_INVITE_TO_POST = "Can't invite user to this post"
 INVALID_POST_TYPE = "Invalid post type"
 INVALID_SEARCH_QUERY = "Invalid search query"
@@ -213,6 +215,9 @@ class PostInviteListType:
     RECOMMENDATION = "recommended"
     FOLLOWING = "following"
     FOLLOWERS = "followers"
+    
+    RECEIVED = "received"
+    SENT = "sent"
 
 class MemFollowType:
     Followers = "followers"

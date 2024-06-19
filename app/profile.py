@@ -578,7 +578,7 @@ async def get_member_followers(
         if not user_id:
             user_id = user.id
         
-        user_data = await get_member_followers_following(db, user_id, limit, offset, type)
+        user_data = await get_member_followers_following(db, user_id, user.id, limit, offset, type)
         
         return {
             "message": "success",
