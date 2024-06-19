@@ -91,25 +91,33 @@ async def get_all_created_choices(
 
 async def check_language_choices(
     db: AsyncSession,
-    _languages: List[int]
+    _languages: List[int],
+    raise_exception: bool = False
 ) -> List[int]:
     languages = []
     for language_id in _languages:
         language = await db.get(Languages, language_id)
         if language:
             languages.append(language_id)
+        else:
+            if raise_exception:
+                raise Exception(f"Language {language_id} does not exist")
             
     return languages
 
 async def check_interest_choices(
     db: AsyncSession,
-    _interest: List[int]
+    _interest: List[int],
+    raise_exception: bool = False
 ) -> List[int]:
     interests = []
     for interest_id in _interest:
         interest = await db.get(InterestAreas, interest_id)
         if interest:
             interests.append(interest_id)
+        else:
+            if raise_exception:
+                raise Exception(f"Language {interest_id} does not exist")
             
     return interests
 

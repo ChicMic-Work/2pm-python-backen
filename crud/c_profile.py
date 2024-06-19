@@ -4,14 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 from uuid_extensions import uuid7
-from crud.c_posts_list import get_post_tags_list
+from crud.c_posts_list import convert_all_post_list_for_response, convert_blog_ques_post_for_response, convert_poll_post_for_response, get_post_tags_list
 from database.models import (
     Languages, MmbFollowCurr,
     InterestAreas,
     MemberProfileCurr, MemberProfileHist,
     AliasHist, MmbFollowHist,
     PollQues,
-    Post,
+    Post, PostFavCurr, PostFolCurr,
     PostStatusCurr,
 )
 from schemas import s_auth, s_choices
@@ -291,3 +291,68 @@ async def get_member_followers_following(
         
     return user_data
 
+
+async def get_member_followed_posts_list(
+    db: AsyncSession,
+    user_id: UUID,
+    type: str,
+    limit: int,
+    offset: int
+):
+    
+    base_query = (
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
+            .select_from(
+                PostFolCurr
+            )
+            .join(Post, Post.id == PostFolCurr.post_id)
+            .join(PostStatusCurr, PostStatusCurr.post_id == PostFolCurr.post_id) 
+            .join(MemberProfileCurr, MemberProfileCurr.id == PostFolCurr.member_id)
+            .where(
+                PostFolCurr.member_id == user_id,
+                PostStatusCurr.is_blocked == False,
+                PostStatusCurr.is_deleted == False,
+            )
+        )
+        
+    query = base_query.where(Post.type == type)
+        
+    query = query.order_by(desc(PostFolCurr.follow_at)).limit(limit).offset(offset)
+    
+    results = await db.execute(query)
+    posts = results.fetchall()
+        
+    return await convert_all_post_list_for_response(db, posts)
+
+
+async def get_member_fav_posts_list(
+    db: AsyncSession,
+    user_id: UUID,
+    type: str,
+    limit: int,
+    offset: int
+):
+    
+    base_query = (
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
+            .select_from(
+                PostFavCurr
+            )
+            .join(Post, Post.id == PostFavCurr.post_id)
+            .join(PostStatusCurr, PostStatusCurr.post_id == PostFavCurr.post_id) 
+            .join(MemberProfileCurr, MemberProfileCurr.id == PostFavCurr.member_id)
+            .where(
+                PostFavCurr.member_id == user_id,
+                PostStatusCurr.is_blocked == False,
+                PostStatusCurr.is_deleted == False,
+            )
+        )
+        
+    query = base_query.where(Post.type == type)
+        
+    query = query.order_by(desc(PostFavCurr.fav_at)).limit(limit).offset(offset)
+    
+    results = await db.execute(query)
+    posts = results.fetchall()
+        
+    return await convert_all_post_list_for_response(db, posts)

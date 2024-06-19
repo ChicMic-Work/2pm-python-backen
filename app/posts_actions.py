@@ -15,7 +15,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_actions import check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, invite_member_to_post_list, member_create_poll_entries
+from crud.c_posts_actions import check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_mark_fav_post
 from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
 from crud.c_profile import get_member_followers_following
 from dependencies import get_db
@@ -27,7 +27,7 @@ from crud.c_auth import (
 from schemas.s_posts_actions import MemTakePollReq
 from schemas.s_posts_list import PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, DUPLICATE_POLL_ITEM_IDS, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, USER_NOT_FOUND, AuthTokenHeaderKey, PostInviteListType, PostType, ResponseKeys, ResponseMsg
+    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, DUPLICATE_POLL_ITEM_IDS, FOLLOWED, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, UNFOLLOWED, USER_NOT_FOUND, AuthTokenHeaderKey, PostInviteListType, PostType, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -239,7 +239,7 @@ async def invite_member_to_a_post(
         
 
 @router.get(
-    "/invite/received/{post_id}"
+    "/invite/list/{post_id}"
 )
 async def list_received_invites(
     request: Request,
@@ -275,7 +275,7 @@ async def list_received_invites(
         }
 
 
-@router.get(
+@router.post(
     "/follow/{post_id}"
 )
 async def follow_post(
@@ -295,15 +295,63 @@ async def follow_post(
         if post.type not in (PostType.Question, PostType.Poll):
             raise Exception(CANT_FOLLOW_POST)
         
+        await check_post_curr_details(db, post.id)
+        
+        del_query, hist, curr = await member_follow_ques_poll(db, post, user.id)
+        
+        if del_query:
+            await db.delete(del_query)
+            msg = UNFOLLOWED
+        else:
+            db.add(curr)
+            msg = FOLLOWED
+            
+        db.add(hist)
+        
+        return {
+            ResponseKeys.MESSAGE: msg
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
+        
+
+@router.post(
+    "/fav/{post_id}"
+)
+async def fav_post(
+    request: Request,
+    response: Response,
+    post_id: str,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        post = await db.get(Post, post_id)
+        if not post:
+            raise Exception(POST_NOT_FOUND)
         
         await check_post_curr_details(db, post.id)
         
+        del_query, hist, curr = await member_mark_fav_post(db, post, user.id)
         
-        
-        res = await (db, post, user.id)
+        if del_query:
+            await db.delete(del_query)
+            msg = UNFOLLOWED
+        else:
+            db.add(curr)
+            msg = FOLLOWED
+            
+        db.add(hist)
         
         return {
-            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS
+            ResponseKeys.MESSAGE: msg
         }
         
     except Exception as exc:

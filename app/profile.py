@@ -4,6 +4,8 @@ from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
     get_follow_counts_search,
+    get_member_fav_posts_list,
+    get_member_followed_posts_list,
     get_member_followers_following,
     get_searched_users,
     get_used_alias,
@@ -45,7 +47,7 @@ from database.models import (
 )
 
 from utilities.constants import (
-    ALIAS_ATMOST, BIO_ATMOST, MemFollowType, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
+    ALIAS_ATMOST, BIO_ATMOST, MemFollowType, PostType, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
     ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
@@ -593,3 +595,64 @@ async def get_member_followers(
         }
         
 
+@router.get(
+    "/followed/post/"
+)
+async def member_followed_posts_list(
+    request: Request,
+    response: Response,
+    type = PostType.Question,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        if type not in (PostType.Question, PostType.Poll):
+            raise Exception("Invalid type")
+        
+        user_data = await get_member_followed_posts_list(db, user.id, type, limit, offset)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+        
+@router.get(
+    "/fav/post/"
+)
+async def member_followed_posts_list(
+    request: Request,
+    response: Response,
+    type = PostType.Question,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        user_data = await get_member_fav_posts_list(db, user.id, type, limit, offset)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }

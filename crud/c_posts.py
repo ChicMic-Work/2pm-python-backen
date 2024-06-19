@@ -1,4 +1,4 @@
-from sqlalchemy import func, select, asc, delete
+from sqlalchemy import exists, func, select, asc, delete, update
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +9,8 @@ from uuid_extensions import uuid7
 
 from typing import List, Union
 
+from crud.c_choices import check_interest_choices, check_language_choices
+from utilities.common import normalize_tag
 from utilities.constants import (
     AddType, ChoicesType
 )
@@ -36,9 +38,33 @@ from utilities.constants import (
 
 from database.models import (
     DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist
+    PostDraft, PostStatusCurr, PostStatusHist, QuesInvite, TagList
 )
 from uuid_extensions import uuid7
+
+
+async def create_forum_tag(
+    db: AsyncSession,
+    tag: str
+):
+    
+    _ex = normalize_tag(tag)
+    
+    query = select(TagList).where(
+        
+    )
+    
+    query = (
+        select(exists().where(
+            TagList.name == _ex
+        ))
+    )
+    
+    if not (await db.execute(query)).scalar():
+        return TagList(
+            name = tag,
+            add_date = current_datetime().date()
+        )
 
 
 def add_post_tags(post: Post, tags: List[str]):
@@ -52,6 +78,15 @@ def add_post_tags(post: Post, tags: List[str]):
     except:pass
     
 
+async def check_choices_for_posts(
+    db: AsyncSession,
+    language_id: int,
+    interest_id: int
+):
+    await check_language_choices(db, [language_id], True)
+    await check_interest_choices(db, [interest_id], True)
+
+
 #BLOG
 async def create_blog_post_crud(
     db: AsyncSession,
@@ -63,6 +98,8 @@ async def create_blog_post_crud(
     if draft_id:
         del_query = delete(PostDraft).where(PostDraft.id == draft_id)
 
+    await check_choices_for_posts(db, post_request.language_id, post_request.interest_area_id)
+    
     post    = Post(
         id = uuid7(),
         member_id = member_id,
@@ -131,7 +168,7 @@ async def create_ques_post_crud(
     del_query = None
     if draft_id:
         del_query = delete(PostDraft).where(PostDraft.id == draft_id)
-
+    await check_choices_for_posts(db, post_request.language_id, post_request.interest_area_id)
     post    = Post(
         id = uuid7(),
         member_id = member_id,
@@ -213,7 +250,7 @@ async def create_ans_post_crud(
             post_at= current_datetime()
         )
         
-        add_post_tags(post, [ques.tag1, ques.tag2, ques.tag3])
+        add_post_tags(post, [" ", None, None])
         
 
         post_curr   = PostStatusCurr(
@@ -282,6 +319,8 @@ async def create_poll_post_crud(
     if draft_id:
         del_queries.append(delete(PostDraft).where(PostDraft.id == draft_id))
         del_queries.append(delete(PollQues).where(PollQues.post_id == draft_id))
+        
+    await check_choices_for_posts(db, post_request.language_id, post_request.interest_area_id)
 
     post    = Post(
         id = uuid7(),
@@ -447,3 +486,23 @@ async def get_poll_post_items(
     ]
     
     return poll_questions
+
+
+async def add_ans_to_invited_ques(
+    db: AsyncSession,
+    ques: Post,
+    ans: Post,
+    member_id: UUID,
+):
+
+    query = (
+        update(QuesInvite)
+        .where(
+            QuesInvite.invited_mbr_id == member_id,
+            QuesInvite.ques_post_id == ques.id
+        )
+        .values(ans_post_id=ans.id)
+    )
+    
+    
+    return query

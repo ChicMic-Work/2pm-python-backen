@@ -101,6 +101,28 @@ def normalize_nickname(nickname):
     
     return normalized_nickname
 
+
+def normalize_tag(tag):
+    """Normalize the tag similar to the PostgreSQL normalize_tag function."""
+    # Step 1: Remove accents
+    tag = unidecode(tag)
+    
+    tag = unaccent(tag)
+    
+    # Step 2: Replace non-whitespace characters with a space
+    tag = re.sub(r'[^\S]', ' ', tag)
+    
+    # Step 3: Replace multiple spaces with a single space
+    tag = re.sub(r'\s+', ' ', tag)
+    
+    # Step 4: Trim leading and trailing whitespace
+    tag = tag.strip()
+    
+    # Step 5: Convert to uppercase
+    tag = tag.upper()
+    
+    return tag
+
 """
 nickname = "kožušček José  @%$ García 12421 \n icwbb kožušček 21321 $*#^@* ä, ë, ï, ö, ü, ÿ, Ä, Ë, Ï, Ö, Ü, Ÿ, œ, Œ, æ, Æ, ø, Ø, ¿, ¡, ß, å, Å"
 

@@ -9,8 +9,8 @@ from starlette import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crud.c_posts import (
-    create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, 
-    create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
+    add_ans_to_invited_ques, create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, 
+    create_draft_blog_post_crud, create_draft_poll_post_crud, create_forum_tag, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
 from crud.c_posts_list import get_member_dict_for_post_detail, get_post_tags_list
@@ -69,6 +69,14 @@ async def create_blog_post(
             user: MemberProfileCurr = request.user
             
             del_query, post, post_curr, post_hist = await create_blog_post_crud(db, user.id, post_request.draft_id, post_request)
+            
+            add_tag = []
+            for tag in post_request.tags:
+                _tag = await create_forum_tag(db, tag)
+                if _tag:
+                    add_tag.append(_tag)
+            
+            db.add_all(add_tag)
 
             db.add(post)
             db.add(post_curr)
@@ -160,6 +168,14 @@ async def create_question_post(
             user: MemberProfileCurr = request.user
 
             del_query, post, post_curr, post_hist = await create_ques_post_crud(db, user.id, post_request.draft_id, post_request)
+            
+            add_tag = []
+            for tag in post_request.tags:
+                _tag = await create_forum_tag(db, tag)
+                if _tag:
+                    add_tag.append(_tag)
+            
+            db.add_all(add_tag)
 
             db.add(post)
             db.add(post_curr)
@@ -261,8 +277,12 @@ async def create_answer_post(
             
             del_query, post, post_curr, post_hist  = await create_ans_post_crud(db, user.id, post_request.draft_id, post_request, ques)
 
+            invites = None
+            if post_curr and not post_curr.is_anonymous:
+                invites = await add_ans_to_invited_ques(db, ques, post, user.id)
+            
             db.add(post)
-
+            
             if post_curr:
                 db.add(post_curr)
             if post_hist:
@@ -270,6 +290,8 @@ async def create_answer_post(
 
             if post_request.draft_id:
                 await db.execute(del_query)
+            if invites:
+                await db.execute(invites)
             
             post_type = PostType.Answer
             
@@ -369,7 +391,17 @@ async def create_poll_post(
             async with db.begin_nested():
                 user: MemberProfileCurr = request.user
                 
+                
+                
                 del_queries, post, post_curr, post_hist, ques_list = await create_poll_post_crud(db, user.id, post_request.draft_id, post_request)
+                
+                add_tag = []
+                for tag in post_request.tags:
+                    _tag = await create_forum_tag(db, tag)
+                    if _tag:
+                        add_tag.append(_tag)
+                
+                db.add_all(add_tag)
                 
                 db.add(post)
                 db.add(post_curr)

@@ -15,7 +15,7 @@ from utilities.constants import (
 
 from database.models import (
     DailyAns, MemberProfileCurr, MmbFollowCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist, QuesInvite
+    PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostStatusCurr, PostStatusHist, QuesInvite
 )
 from uuid_extensions import uuid7
 
@@ -508,6 +508,74 @@ async def invite_mem_post_list(
 
 #FOLLOW POSTS 
 async def member_follow_ques_poll(
-
+    db: AsyncSession,
+    member_id: UUID,
+    post: Post
 ):
-    pass
+    
+    _del = None
+    
+    _hist = PostFolHist(
+        post_id = post.id,
+        member_id = member_id,
+        add_type = AddType.Add
+    )
+    
+    query = (
+        select(PostFolCurr)
+        .where(
+            PostFolCurr.post_id == post.id,
+            PostFolCurr.member_id == member_id
+        )
+    )
+    
+    result = (await db.execute(query)).scalar()
+    
+    if result:
+        _del = result
+        _hist.add_type = AddType.Delete 
+        
+    else:
+        result = PostFolCurr(
+            member_id = member_id,
+            post_id = post.id
+        )
+    
+    return _del, _hist, result
+
+
+#FAVORITE POSTS
+async def member_mark_fav_post(
+    db: AsyncSession,
+    member_id: UUID,
+    post: Post
+):
+    _del = None
+    
+    _hist = PostFavHist(
+        post_id = post.id,
+        member_id = member_id,
+        add_type = AddType.Add
+    )
+    
+    query = (
+        select(PostFavCurr)
+        .where(
+            PostFavCurr.post_id == post.id,
+            PostFavCurr.member_id == member_id
+        )
+    )
+    
+    result = (await db.execute(query)).scalar()
+    
+    if result:
+        _del = result
+        _hist.add_type = AddType.Delete 
+        
+    else:
+        result = PostFavCurr(
+            member_id = member_id,
+            post_id = post.id
+        )
+    
+    return _del, _hist, result
