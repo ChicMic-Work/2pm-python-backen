@@ -19,7 +19,9 @@ from fastapi import HTTPException
 from starlette import status
 
 from schemas.s_posts import (
+    PollQuesChoicesDraftRequest,
     PollQuesChoicesRequest,
+    PollQuestionDraftReq,
     PollQuestionRequest,
     PostAnsDraftRequest,
     PostAnsRequest,
@@ -414,7 +416,8 @@ async def create_draft_poll_post_crud(
 async def get_poll_post_items(
     db: AsyncSession,
     post_id: UUID,
-    get_percentage: bool = False
+    get_percentage: bool = False,
+    is_draft: bool = False
 ):
 
     result = await db.execute(select(PollQues).where(PollQues.post_id == post_id))
@@ -475,15 +478,26 @@ async def get_poll_post_items(
                 else:
                     choice["percentage"] = 0
 
-    poll_questions = [
-        PollQuestionRequest(
-            qstn_seq_num=k[0],
-            ques_text=k[1],
-            allow_multiple=v["allow_multiple"],
-            choices=[PollQuesChoicesRequest(**choice) for choice in v["choices"]]
-        )
-        for k, v in poll_dict.items()
-    ]
+    if is_draft:
+        poll_questions = [
+                PollQuestionDraftReq(
+                qstn_seq_num=k[0],
+                ques_text=k[1],
+                allow_multiple=v["allow_multiple"],
+                choices=[PollQuesChoicesDraftRequest(**choice) for choice in v["choices"]]
+            )
+            for k, v in poll_dict.items()
+        ]
+    else:
+        poll_questions = [
+            PollQuestionRequest(
+                qstn_seq_num=k[0],
+                ques_text=k[1],
+                allow_multiple=v["allow_multiple"],
+                choices=[PollQuesChoicesRequest(**choice) for choice in v["choices"]]
+            )
+            for k, v in poll_dict.items()
+        ]
     
     return poll_questions
 

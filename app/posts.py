@@ -278,7 +278,9 @@ async def create_answer_post(
             del_query, post, post_curr, post_hist  = await create_ans_post_crud(db, user.id, post_request.draft_id, post_request, ques)
 
             invites = None
+            invite_true = False
             if post_curr and not post_curr.is_anonymous:
+                invite_true = True
                 invites = await add_ans_to_invited_ques(db, ques, post, user.id)
             
             db.add(post)
@@ -290,7 +292,7 @@ async def create_answer_post(
 
             if post_request.draft_id:
                 await db.execute(del_query)
-            if invites:
+            if invite_true:
                 await db.execute(invites)
             
             post_type = PostType.Answer

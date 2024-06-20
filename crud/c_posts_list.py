@@ -14,7 +14,7 @@ from typing import List, Tuple
 from schemas.s_posts import InvitedQuesResponse, PostAnsResponse, PostBlogQuesResponse, PostPollResponse
 from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts, search_post_base_func
 from utilities.constants import (
-    INVALID_SORT_TYPE, PGROONGA_OPERATOR, POST_BLOCKED, POST_DELETED, POST_NOT_FOUND, AddType, ChoicesType, HOPSortType, PaginationLimit, PostType, current_datetime
+    INVALID_SORT_TYPE, PGROONGA_OPERATOR, POST_BLOCKED, POST_DELETED, POST_NOT_FOUND, AddType, ChoicesType, HOPSortType, PaginationLimit, PostInviteListType, PostType, current_datetime
 )
 
 from datetime import datetime, timedelta
@@ -278,7 +278,8 @@ async def get_searched_question_poll_list(
 async def invited_question_poll_response(
     db: AsyncSession,
     invited: List[Tuple[UUID, int, bool]],
-    type: str
+    type: str,
+    invite_type: str = PostInviteListType.RECEIVED
 ):
     
     res = []
@@ -304,13 +305,25 @@ async def invited_question_poll_response(
             results = await db.execute(post_query)
             post = results.fetchone()
             
-            image_query = (
-                select(MemberProfileCurr.image)
-                .select_from(QuesInvite)
-                .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
-                .where(QuesInvite.ques_post_id == invite[0])
-                .limit(PaginationLimit.invited_images)
-            )
+            if invite_type == PostInviteListType.RECEIVED:
+            
+                image_query = (
+                    select(MemberProfileCurr.image)
+                    .select_from(QuesInvite)
+                    .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.inviting_mbr_id)
+                    .where(QuesInvite.ques_post_id == invite[0])
+                    .limit(PaginationLimit.invited_images)
+                )
+
+            else:
+
+                image_query = (
+                    select(MemberProfileCurr.image)
+                    .select_from(QuesInvite)
+                    .join(MemberProfileCurr, MemberProfileCurr.id == QuesInvite.invited_mbr_id)
+                    .where(QuesInvite.ques_post_id == invite[0])
+                    .limit(PaginationLimit.invited_images)
+                )
 
             results = await db.execute(image_query)
             images = results.fetchall()
@@ -362,13 +375,24 @@ async def invited_question_poll_response(
 
             body = (await db.execute(select(PollQues.ques_text).where(PollQues.post_id == invite[0], PollQues.qstn_seq_num == 1, PollQues.ans_seq_letter == "A"))).scalar()
             
-            image_query = (
-                select(MemberProfileCurr.image)
-                .select_from(PollInvite)
-                .join(MemberProfileCurr, MemberProfileCurr.id == PollInvite.inviting_mbr_id)
-                .where(PollInvite.poll_post_id == invite[0])
-                .limit(PaginationLimit.invited_images)
-            )
+            if invite_type == PostInviteListType.RECEIVED:
+            
+                image_query = (
+                    select(MemberProfileCurr.image)
+                    .select_from(PollInvite)
+                    .join(MemberProfileCurr, MemberProfileCurr.id == PollInvite.inviting_mbr_id)
+                    .where(PollInvite.poll_post_id == invite[0])
+                    .limit(PaginationLimit.invited_images)
+                )
+
+            else:
+                image_query = (
+                    select(MemberProfileCurr.image)
+                    .select_from(PollInvite)
+                    .join(MemberProfileCurr, MemberProfileCurr.id == PollInvite.invited_mbr_id)
+                    .where(PollInvite.poll_post_id == invite[0])
+                    .limit(PaginationLimit.invited_images)
+                )
 
             results = await db.execute(image_query)
             images = results.fetchall()

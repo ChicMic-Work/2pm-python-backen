@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 from fastapi import (
     APIRouter, Depends, 
     HTTPException, Header, 
@@ -15,7 +16,7 @@ from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
-from crud.c_posts_actions import check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_mark_fav_post
+from crud.c_posts_actions import check_existing_report, check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_post, member_mark_fav_post, member_report_content
 from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
 from crud.c_profile import get_member_followers_following
 from dependencies import get_db
@@ -24,10 +25,10 @@ from crud.c_auth import (
     get_user_by_id
 )
 
-from schemas.s_posts_actions import MemTakePollReq
+from schemas.s_posts_actions import MemTakePollReq, ReportReasonReq
 from schemas.s_posts_list import PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, DUPLICATE_POLL_ITEM_IDS, FOLLOWED, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, UNFOLLOWED, USER_NOT_FOUND, AuthTokenHeaderKey, PostInviteListType, PostType, ResponseKeys, ResponseMsg
+    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, CANT_REPORT_SELF, COMMENT_NOT_FOUND, DUPLICATE_POLL_ITEM_IDS, FOLLOWED, INVALID_REPORT_TYPE, LIKED, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, UNFOLLOWED, UNLIKE, USER_NOT_FOUND, AuthTokenHeaderKey, PostInviteListType, PostType, ReportType, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -45,7 +46,7 @@ from schemas.s_posts import (
 )
 
 from database.models import (
-    DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
+    CommentNode, DailyCommentNode, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
     PostDraft
 )
 
@@ -241,7 +242,7 @@ async def invite_member_to_a_post(
 @router.get(
     "/invite/list/{post_id}"
 )
-async def list_received_invites(
+async def list_received_sent_invites(
     request: Request,
     response: Response,
     post_id: str,
@@ -354,6 +355,114 @@ async def fav_post(
             ResponseKeys.MESSAGE: msg
         }
         
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
+        
+        
+@router.post(
+    "/like/{post_id}"
+)
+async def like_post(
+    request: Request,
+    response: Response,
+    post_id: str,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        post = await db.get(Post, post_id)
+        if not post:
+            raise Exception(POST_NOT_FOUND)
+        
+        await check_post_curr_details(db, post.id)
+        
+        del_query, hist, curr = await member_like_post(db, post, user.id)
+        
+        if del_query:
+            await db.delete(del_query)
+            msg = UNLIKE
+            
+        else:
+            db.add(curr)
+            msg = LIKED
+            
+        db.add(hist)
+        
+        return {
+            ResponseKeys.MESSAGE: msg
+        }
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
+        
+        
+@router.post(
+    "/report/{content_id}"
+)
+async def report_post(
+    request: Request,
+    response: Response,
+    content_id: str,
+    reason: ReportReasonReq,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        if reason.content_type == ReportType.MESSAGE:
+            await check_existing_report(db, user.id, content_id, True)
+        else:
+            await check_existing_report(db, user.id, content_id, False)
+        
+        if reason.content_type not in ReportType._list:
+            raise Exception(INVALID_REPORT_TYPE)
+        
+        if reason.content_type == ReportType.POST:
+            post = await db.get(Post, content_id)
+            if not post:
+                raise Exception(POST_NOT_FOUND)
+            if post.member_id == user.id:
+                raise Exception(CANT_REPORT_SELF)
+            await check_post_curr_details(db, post.id)
+        
+        if reason.content_type == ReportType.HOMEPAGE:
+            if user.id == UUID(content_id):
+                raise Exception(CANT_REPORT_SELF)
+            
+        if reason.content_type == ReportType.COMMENT:
+            
+            n_cmnt = await db.get(CommentNode, content_id)
+            
+            if not n_cmnt:
+                d_cmnt = await db.get(DailyCommentNode, content_id)
+                if not d_cmnt:
+                    raise Exception(COMMENT_NOT_FOUND)
+                if d_cmnt.member_id == user.id:
+                    raise Exception(CANT_REPORT_SELF)
+            
+            if n_cmnt.member_id == user.id:
+                raise Exception(CANT_REPORT_SELF)
+                
+        report = await member_report_content(db, user.id, content_id, reason)
+        
+        db.add(report)
+        await db.commit()
+        
+        return {
+            ResponseKeys.MESSAGE: "Reported"
+        }
+
     except Exception as exc:
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {

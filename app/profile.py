@@ -7,6 +7,8 @@ from crud.c_profile import (
     get_member_fav_posts_list,
     get_member_followed_posts_list,
     get_member_followers_following,
+    get_member_like_posts_list,
+    get_member_profile_invites_list,
     get_searched_users,
     get_used_alias,
     get_user_posts_details_by_user_id,
@@ -47,7 +49,7 @@ from database.models import (
 )
 
 from utilities.constants import (
-    ALIAS_ATMOST, BIO_ATMOST, MemFollowType, PostType, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
+    ALIAS_ATMOST, BIO_ATMOST, MemFollowType, PostInviteListType, PostType, TableCharLimit, ALIAS_VALID, ALIAS_ATLEAST,
     AuthTokenHeaderKey, ALIAS_INVALID, 
     ALIAS_INVALID_CHARACTER, ALIAS_CURRENT,
     ALIAS_EXISTS, CLOUDFRONT_URL, IMAGE_FAIL,
@@ -644,6 +646,66 @@ async def member_followed_posts_list(
         user: MemberProfileCurr = request.user
         
         user_data = await get_member_fav_posts_list(db, user.id, type, limit, offset)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+        
+
+@router.get(
+    "/like/post/"
+)
+async def member_like_posts_list(
+    request: Request,
+    response: Response,
+    type = PostType.Question,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        user_data = await get_member_like_posts_list(db, user.id, type, limit, offset)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        
+        
+@router.get(
+    "/invite/post/"
+)
+async def member_invite_sent_received_posts_list(
+    request: Request,
+    response: Response,
+    type: str = PostType.Question,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0,
+    invite_type: str = PostInviteListType.RECEIVED
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        if type not in (PostType.Question, PostType.Poll):
+            raise Exception("Invalid type")
+        
+        user_data = await get_member_profile_invites_list(db, user.id, type, limit, offset, invite_type)
         
         return {
             "message": "success",

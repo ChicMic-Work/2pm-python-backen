@@ -1,18 +1,18 @@
-from sqlalchemy import join, select, func, desc, and_
+from sqlalchemy import distinct, join, select, func, desc, and_
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 from uuid_extensions import uuid7
-from crud.c_posts_list import convert_all_post_list_for_response, convert_blog_ques_post_for_response, convert_poll_post_for_response, get_post_tags_list
+from crud.c_posts_list import convert_all_post_list_for_response, convert_blog_ques_post_for_response, convert_poll_post_for_response, get_post_tags_list, invited_question_poll_response
 from database.models import (
     Languages, MmbFollowCurr,
     InterestAreas,
     MemberProfileCurr, MemberProfileHist,
-    AliasHist, MmbFollowHist,
+    AliasHist, MmbFollowHist, PollInvite,
     PollQues,
-    Post, PostFavCurr, PostFolCurr,
-    PostStatusCurr,
+    Post, PostFavCurr, PostFolCurr, PostLikeCurr,
+    PostStatusCurr, QuesInvite,
 )
 from schemas import s_auth, s_choices
 
@@ -23,6 +23,7 @@ from utilities.constants import (
     USER_NOT_FOUND,
     AddType,
     MemFollowType,
+    PostInviteListType,
     PostType
 )
 
@@ -356,3 +357,185 @@ async def get_member_fav_posts_list(
     posts = results.fetchall()
         
     return await convert_all_post_list_for_response(db, posts)
+
+
+async def get_member_like_posts_list(
+    db: AsyncSession,
+    user_id: UUID,
+    type: str,
+    limit: int,
+    offset: int
+):
+    
+    base_query = (
+            select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
+            .select_from(
+                PostLikeCurr
+            )
+            .join(Post, Post.id == PostLikeCurr.post_id)
+            .join(PostStatusCurr, PostStatusCurr.post_id == PostLikeCurr.post_id) 
+            .join(MemberProfileCurr, MemberProfileCurr.id == PostLikeCurr.member_id)
+            .where(
+                PostLikeCurr.member_id == user_id,
+                PostStatusCurr.is_blocked == False,
+                PostStatusCurr.is_deleted == False,
+            )
+        )
+        
+    query = base_query.where(Post.type == type)
+        
+    query = query.order_by(desc(PostLikeCurr.like_at)).limit(limit).offset(offset)
+    
+    results = await db.execute(query)
+    posts = results.fetchall()
+        
+    return await convert_all_post_list_for_response(db, posts)
+
+
+async def get_member_profile_invites_list(
+    db: AsyncSession,
+    user_id: UUID,
+    type: str,
+    limit: int,
+    offset: int,
+    invite_type: str
+):
+    
+    if invite_type == PostInviteListType.RECEIVED:
+        
+        if type == PostType.Question:
+            
+            subquery = (
+                select(
+                    QuesInvite.ques_post_id,
+                    func.max(QuesInvite.invite_at).label("latest_invite_at"),
+                    func.count(QuesInvite.id).label("invite_count"),
+                    PostStatusCurr.is_anonymous.label("is_anonymous")
+                )
+                .join(PostStatusCurr, QuesInvite.ques_post_id == PostStatusCurr.post_id)
+                .where(
+                    PostStatusCurr.is_blocked == False,
+                    PostStatusCurr.is_deleted == False,
+                    QuesInvite.invited_mbr_id == user_id
+                )
+                .group_by(QuesInvite.ques_post_id, PostStatusCurr.is_anonymous)
+                .subquery()
+            )
+            
+            query = (
+                select(
+                    distinct(QuesInvite.ques_post_id),
+                    subquery.c.invite_count,
+                    subquery.c.is_anonymous,
+                    subquery.c.latest_invite_at,
+                )
+                .join(subquery, QuesInvite.ques_post_id == subquery.c.ques_post_id)
+            )
+
+        elif type == PostType.Poll:
+            
+            subquery = (
+                select(
+                    PollInvite.poll_post_id,
+                    func.max(PollInvite.invite_at).label("latest_invite_at"),
+                    func.count(PollInvite.id).label("invite_count"),
+                    PostStatusCurr.is_anonymous.label("is_anonymous")
+                )
+                .join(PostStatusCurr, PollInvite.poll_post_id == PostStatusCurr.post_id)
+                .where(
+                    PostStatusCurr.is_blocked == False,
+                    PostStatusCurr.is_deleted == False,
+                    PollInvite.invited_mbr_id == user_id
+                )
+                .group_by(PollInvite.poll_post_id, PostStatusCurr.is_anonymous)
+                .subquery()
+            )
+            
+            query = (
+                select(
+                    distinct(PollInvite.poll_post_id),
+                    subquery.c.invite_count,
+                    subquery.c.is_anonymous,
+                    subquery.c.latest_invite_at,
+                )
+                .join(subquery, PollInvite.poll_post_id == subquery.c.poll_post_id)
+            )
+        
+        query = query.order_by(desc(subquery.c.latest_invite_at)).limit(limit).offset(offset)
+        
+    elif invite_type == PostInviteListType.SENT:
+        
+        if type == PostType.Question:
+            
+            subquery = (
+                select(
+                    QuesInvite.ques_post_id,
+                    func.max(QuesInvite.invite_at).label("latest_invite_at"),
+                    func.count(QuesInvite.id).label("invite_count"),
+                    PostStatusCurr.is_anonymous.label("is_anonymous")
+                )
+                .join(PostStatusCurr, QuesInvite.ques_post_id == PostStatusCurr.post_id)
+                .where(
+                    PostStatusCurr.is_blocked == False,
+                    PostStatusCurr.is_deleted == False,
+                    QuesInvite.inviting_mbr_id == user_id
+                )
+                .group_by(QuesInvite.ques_post_id, PostStatusCurr.is_anonymous)
+                .subquery()
+            )
+            
+            query = (
+                select(
+                    distinct(QuesInvite.ques_post_id),
+                    subquery.c.invite_count,
+                    subquery.c.is_anonymous,
+                    subquery.c.latest_invite_at,
+                )
+                .join(subquery, QuesInvite.ques_post_id == subquery.c.ques_post_id)
+            )
+
+        elif type == PostType.Poll:
+            
+            subquery = (
+                select(
+                    PollInvite.poll_post_id,
+                    func.max(PollInvite.invite_at).label("latest_invite_at"),
+                    func.count(PollInvite.id).label("invite_count"),
+                    PostStatusCurr.is_anonymous.label("is_anonymous")
+                )
+                .join(PostStatusCurr, PollInvite.poll_post_id == PostStatusCurr.post_id)
+                .where(
+                    PostStatusCurr.is_blocked == False,
+                    PostStatusCurr.is_deleted == False,
+                    PollInvite.inviting_mbr_id == user_id
+                )
+                .group_by(PollInvite.poll_post_id, PostStatusCurr.is_anonymous)
+                .subquery()
+            )
+            
+            query = (
+                select(
+                    distinct(PollInvite.poll_post_id),
+                    subquery.c.invite_count,
+                    subquery.c.is_anonymous,
+                    subquery.c.latest_invite_at,
+                )
+                .join(subquery, PollInvite.poll_post_id == subquery.c.poll_post_id)
+            )
+        
+        query = query.order_by(desc(subquery.c.latest_invite_at)).limit(limit).offset(offset)
+    
+    else:
+        raise Exception("INVALID_INVITE_LIST_TYPE")
+    
+    result = await db.execute(query)
+    invite_list = result.fetchall()
+    
+    if invite_list:
+        invite_list = await invited_question_poll_response(db, invite_list, type, invite_type)
+    else:
+        invite_list = []
+    
+    
+    
+    return invite_list

@@ -13,8 +13,8 @@ from typing import List, Optional, Union
 class PostBlogRequest(BaseModel):
     type: str = Field(default= PostType.Blog, description="Blog post")
     
-    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the blog post")
-    body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the blog post")
+    title: str = Field(..., description="Title of the blog post")
+    body: str = Field(..., description="Body of the blog post")
     
     draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts blog")
     is_anonymous: bool
@@ -43,8 +43,8 @@ class PostBlogRequest(BaseModel):
 class PostBlogDraftRequest(BaseModel):
     type: str = Field(default= PostType.Blog, description= "Blog Post")
     
-    title: str = Field(None, max_length=TableCharLimit.post_title, description="Title of the blog post")
-    body: str  = Field(None, max_length=TableCharLimit.post_detail, description="Body of the blog post")
+    title: str = Field(None,  description="Title of the blog post")
+    body: str  = Field(None, description="Body of the blog post")
     
     draft_id: Optional[UUID] = Field(None, description="Changes existing Drafted Blog Post")
     
@@ -76,8 +76,8 @@ class PostBlogDraftRequest(BaseModel):
 class PostQuesRequest(BaseModel):
     type: str = Field( default= PostType.Question, description="Question Post")
     
-    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the question post")
-    body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the question post")
+    title: str = Field(..., description="Title of the question post")
+    body: str = Field(..., description="Body of the question post")
     
     draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts question")
     is_anonymous: bool
@@ -106,8 +106,8 @@ class PostQuesRequest(BaseModel):
 class PostQuesDraftRequest(BaseModel):
     type: str = Field( default= PostType.Question, description="Question Post")
     
-    title: str = Field(None, max_length=TableCharLimit.post_title, description="Title of the question post")
-    body: str  = Field(None, max_length=TableCharLimit.post_detail, description="Body of the question post")
+    title: str = Field(None,  description="Title of the question post")
+    body: str  = Field(None,  description="Body of the question post")
     
     draft_id: Optional[UUID] = Field(None, description="Changes existing Drafted Question Post")
     
@@ -169,8 +169,8 @@ class InvitedQuesResponse(BaseModel):
 class PostAnsRequest(BaseModel):
     type: str = Field(default= PostType.Answer, description="Answer Post")
     
-    title: str = Field("Answer", max_length=TableCharLimit.post_title, description="Title of the answer post")
-    body: str = Field(..., max_length=TableCharLimit.post_detail, description="Body of the answer post")
+    title: str = Field("Answer", description="Title of the answer post")
+    body: str = Field(..., description="Body of the answer post")
     
     post_ques_id: UUID = Field(..., description="Question Post ID")
 
@@ -188,8 +188,8 @@ class PostAnsDraftRequest(BaseModel):
 
     type: str = Field(default= PostType.Answer, description="Answer Post")
 
-    title: str = Field("Answer", max_length=TableCharLimit.post_title, description="Title of the answer post")
-    body: str  = Field(..., max_length=TableCharLimit.post_detail, description="Body of the answer post")
+    title: str = Field("Answer",  description="Title of the answer post")
+    body: str  = Field(...,  description="Body of the answer post")
 
     post_ques_id: UUID = Field(..., description="Question Post ID")
     
@@ -225,8 +225,8 @@ class PostAnsResponse(BaseModel):
 class PollQuesChoicesReqBase(BaseModel):
     
     poll_item_id: str   = Field("", description="Poll Item ID, Used in response")
-    ans_seq_letter: str = Field(..., max_length=PollPostLimit.ans_seq_letter_len, description="Choice Sequence Letter")
-    ans_text: str       = Field("", max_length=TableCharLimit.poll_choice, description="Choice Text")
+    ans_seq_letter: str = Field(...,  description="Choice Sequence Letter")
+    ans_text: str       = Field("",  description="Choice Text")
     
     percentage: int | None    = None
     selected_count: int | None = None
@@ -238,11 +238,11 @@ class PollQuesChoicesReqBase(BaseModel):
         return v
 
 class PollQuesChoicesRequest(PollQuesChoicesReqBase):
-    ans_text: str       = Field(..., max_length=TableCharLimit.poll_choice, description="Choice Text")
+    ans_text: str       = Field(..., description="Choice Text")
 
 
 class PollQuesChoicesDraftRequest(PollQuesChoicesReqBase):
-    ans_text: str       = Field("", max_length=TableCharLimit.poll_choice, description="Choice Text")
+    ans_text: str       = Field("", description="Choice Text")
 
 
 
@@ -251,14 +251,14 @@ class PollQuesChoicesDraftRequest(PollQuesChoicesReqBase):
 class PollQuestionReqBase(BaseModel):
     
     qstn_seq_num: int = Field(..., ge=PollPostLimit.qstn_seq_num_min, le=PollPostLimit.qstn_seq_num_max, description="Question Sequence Number")
-    ques_text: str    = Field("", max_length=TableCharLimit.poll_qstn, description="Question Text")
+    ques_text: str    = Field("",  description="Question Text")
 
     allow_multiple: bool
     
 
 class PollQuestionRequest(PollQuestionReqBase):
     
-    ques_text: str    = Field(..., max_length=TableCharLimit.poll_qstn, description="Question Text")
+    ques_text: str    = Field(..., description="Question Text")
 
     allow_multiple: bool
 
@@ -274,7 +274,7 @@ class PollQuestionRequest(PollQuestionReqBase):
     
 class PollQuestionDraftReq(PollQuestionReqBase):
     
-    ques_text: str    = Field("", max_length=TableCharLimit.poll_qstn, description="Question Text")
+    ques_text: str    = Field("", description="Question Text")
 
     allow_multiple: bool
 
@@ -290,8 +290,8 @@ class PollQuestionDraftReq(PollQuestionReqBase):
 class PostPollReqBase(BaseModel):
     type: str = Field( default= PostType.Poll, description="Poll Post")
     
-    title : str = Field("", max_length=TableCharLimit.post_title, description="Title of the poll post")
-    body: str = Field("", max_length=TableCharLimit.post_detail, description="Body of the poll post")
+    title : str = Field("",  description="Title of the poll post")
+    body: str = Field("",  description="Body of the poll post")
 
     interest_area_id: int
     language_id: int
@@ -305,7 +305,7 @@ class PostPollReqBase(BaseModel):
 
 class PostPollRequest(PostPollReqBase):
     
-    title: str = Field(..., max_length=TableCharLimit.post_title, description="Title of the poll post")
+    title: str = Field(..., description="Title of the poll post")
 
     draft_id: Optional[UUID] = Field(None, description="Deletes the draft and posts answer")
     is_anonymous: bool

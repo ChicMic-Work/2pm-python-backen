@@ -37,13 +37,13 @@ AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
     '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
-    '/profile/follow/', 'profile/get/user/follows/', 
+    '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
     '/posts/take/poll/', '/posts/reveal/poll/',
     '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/', 
-    '/posts/invite/user/'
+    '/posts/invite/user/', '/posts/invite/list/', '/posts/follow/', '/posts/fav/', '/posts/like/', 
 ]
 
 def current_datetime():
@@ -91,7 +91,18 @@ class TableCharLimit:
     _330        = 330
 
 
+class ReportType:
+    
+    POST = "P"
+    HOMEPAGE = "H"
+    COMMENT = "C"
+    MESSAGE = "M"
+    
+    _list = [POST, HOMEPAGE, COMMENT, MESSAGE]
 
+INVALID_REPORT_TYPE = "Invalid report type"
+REPORT_REASON_REQUIRED = "Report reason is required"
+REPORT_CONTENT_REQUIRED = "Report content is required"
 
 class PaginationLimit:
 
@@ -171,8 +182,12 @@ ALREADY_INVITED = "Already invited"
 
 UNFOLLOWED = "Unfollowed"
 FOLLOWED = "Followed"
+UNLIKE = "Unlike"
+LIKED = "Liked"
 
-
+CANT_REPORT_SELF = "Can't report yourself"
+COMMENT_NOT_FOUND = "Comment not found"
+REPORT_ALREADY_EXISTS = "Report already exists"
 
 class RandomSample:
     

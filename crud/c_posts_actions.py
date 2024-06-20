@@ -8,14 +8,14 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from crud.c_profile import get_follow_counts_search
-from schemas.s_posts_actions import MemInvSentList, MemInviteListBase
+from schemas.s_posts_actions import MemInvSentList, MemInviteListBase, ReportReasonReq
 from utilities.constants import (
-    INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, AddType, ChoicesType, PostInviteListType, PostType
+    INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, REPORT_ALREADY_EXISTS, AddType, ChoicesType, PostInviteListType, PostType, ReportType
 )
 
 from database.models import (
-    DailyAns, MemberProfileCurr, MmbFollowCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostStatusCurr, PostStatusHist, QuesInvite
+    DailyAns, MemberProfileCurr, MmbFollowCurr, MmbMsgReport, MmbReport, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostLikeCurr, PostLikeHist, PostStatusCurr, PostStatusHist, QuesInvite
 )
 from uuid_extensions import uuid7
 
@@ -284,6 +284,31 @@ async def invite_member_to_post_list(
         )
     )
     
+    
+    
+    if type == PostInviteListType.FOLLOWERS:
+        query = base_query.join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.following_id).where(
+            MmbFollowCurr.followed_id == user_id
+        )
+        
+        check_following = True
+            
+    elif type == PostInviteListType.FOLLOWING:
+        query = base_query.join(MmbFollowCurr, MemberProfileCurr.id == MmbFollowCurr.followed_id).where(
+            MmbFollowCurr.following_id == user_id
+        )
+        
+        check_following = False
+    
+    else:
+        raise Exception("INVALID_INVITE_LIST_TYPE")
+    
+    if search:
+        search_filter = MemberProfileCurr.alias.ilike(f"%{search}%")
+        query = query.where(search_filter)
+        
+    query = query.limit(limit).offset(offset)
+    """
     if search:
         
         combined_query = base_query.join(
@@ -331,7 +356,7 @@ async def invite_member_to_post_list(
             query = query.where(filter)
 
         query = query.limit(limit).offset(offset) #.order_by(desc(MmbFollowCurr.follow_at))
-    
+    """
     
     res = await db.execute(query)
     users = res.fetchall()
@@ -380,7 +405,7 @@ async def invite_mem_post_response(
             result = await db.execute(query)
             user = result.fetchone()
             
-            follow_dict = get_follow_counts_search(db, invite[0], None, False)
+            follow_dict = await get_follow_counts_search(db, invite[0], None, False)
             
             res_data.append(MemInviteListBase(
                 id = invite[0],
@@ -405,7 +430,7 @@ async def invite_mem_post_response(
             result = await db.execute(query)
             user = result.fetchone()   
             
-            follow_dict = get_follow_counts_search(db, invite[0], None, False)
+            follow_dict = await get_follow_counts_search(db, invite[0], None, False)
             
             res_data.append(MemInvSentList(
                 id = invite[0],
@@ -579,3 +604,91 @@ async def member_mark_fav_post(
         )
     
     return _del, _hist, result
+
+
+async def member_like_post(
+    db: AsyncSession,
+    member_id: UUID,
+    post: Post
+):
+    _del = None
+    
+    _hist = PostLikeHist(
+        post_id = post.id,
+        member_id = member_id,
+        add_type = AddType.Add
+    )
+    
+    query = (
+        select(PostLikeCurr)
+        .where(
+            PostLikeCurr.post_id == post.id,
+            PostLikeCurr.member_id == member_id
+        )
+    )
+    
+    result = (await db.execute(query)).scalar()
+    
+    if result:
+        _del = result
+        _hist.add_type = AddType.Delete 
+        
+    else:
+        result = PostLikeCurr(
+            member_id = member_id,
+            post_id = post.id
+        )
+    
+    return _del, _hist, result
+
+
+
+async def check_existing_report(
+    db: AsyncSession,
+    member_id: UUID,
+    content_id: UUID,
+    message: bool
+):
+    if message:
+        
+        query = (
+            select(exists().where(
+                MmbMsgReport.conversation_id == content_id,
+                MmbMsgReport.reporting_member == member_id
+            ))
+        )
+        
+    else:
+        query = (
+            select(exists().where(
+                MmbReport.report_content_id == content_id,
+                MmbReport.reporting_id == member_id
+            ))
+        )
+    
+    result = (await db.execute(query)).scalar()
+    
+    if result:
+        raise Exception(REPORT_ALREADY_EXISTS)
+
+
+
+async def member_report_content(
+    db: AsyncSession,
+    member_id: UUID,
+    content_id: UUID,
+    reason: ReportReasonReq,
+):
+    if reason.content_type != ReportType.MESSAGE:
+        return MmbReport(
+            reporting_id = member_id,
+            report_content_type = reason.content_type,
+            report_content_id = content_id,
+            content = reason.content,
+            reason_code = reason.reason,
+            reason_other_text = reason.reason_text,
+        )
+        
+    return MmbMsgReport(
+        
+    )

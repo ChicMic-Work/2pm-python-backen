@@ -147,7 +147,7 @@ async def get_member_draft(
                 interest_area_id= post_draft.interest_id,
                 language_id= post_draft.lang_id,
                 
-                poll= await get_poll_post_items(db, post_draft.id)
+                poll= await get_poll_post_items(db, post_draft.id, is_draft= True)
             )
         
         return {
@@ -693,3 +693,4 @@ async def pure_random_posts(
             ResponseKeys.MESSAGE: str(exc),
             ResponseKeys.DATA: None
         }
+        
