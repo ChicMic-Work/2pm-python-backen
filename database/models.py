@@ -38,8 +38,8 @@ from database.table_keys import (
 
 from sqlalchemy.orm import validates, relationship
 
-SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_ML1_test"
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_ML1_test"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_test"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test"
 
 #local local
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
@@ -618,7 +618,7 @@ class Post(Base):
     title         = Column(PostKeys.title, String(TableCharLimit._255), nullable= False)
     body          = Column(PostKeys.body, Text, nullable= False)
 
-    tag1          = Column(PostKeys.tag1, String(TableCharLimit._255), nullable= True)
+    tag1          = Column(PostKeys.tag1, String(TableCharLimit._255), nullable= False)
     tag2          = Column(PostKeys.tag2, String(TableCharLimit._255), nullable= True)
     tag3          = Column(PostKeys.tag3, String(TableCharLimit._255), nullable= True)
 
@@ -1205,6 +1205,22 @@ class ViewPostScore(Base):
 
 Index('idx_v_post_score_post_id_answ0', ViewPostScore.post_id, postgresql_where= ViewPostScore.type.is_not('A'))
 
+class ViewMmbTag(Base):
+    
+    __tablename__   = ViewMmbTagKeys.tablename
+    __table_args__  = {'schema': ViewMmbTagKeys.schema_pst}
+    
+    id              = Column(ViewMmbTagKeys.ID, BigInteger, primary_key= True)
+    member_id       = Column(ViewMmbTagKeys.member_id, UUID(as_uuid=True), nullable= False)
+    
+    tag_std         = Column(ViewMmbTagKeys.tag_std, String(TableCharLimit._255), nullable=False)
+    count           = Column(ViewMmbTagKeys.count, Integer, nullable=False)
+    
+    first_at        = Column(ViewMmbTagKeys.fst_at, DateTime(True), nullable=False)
+    last_at         = Column(ViewMmbTagKeys.lst_at, DateTime(True), nullable=False)
+    
+    create_at       = Column(ViewMmbTagKeys.create_at, DateTime(True),nullable=False)
+
 
 class ViewDailyCmntLikeCnt(Base):
     
@@ -1268,21 +1284,6 @@ class ViewCommentLikeCount(Base):
     count         = Column(ViewCmntLikeCntKeys.count, SmallInteger)
     
     create_at     = Column(ViewCmntLikeCntKeys.create_at, DateTime(True), default=func.now())
-
-
-
-
-
-class ViewMmbTag(Base):
-    
-    __tablename__   = ViewMmbTagKeys.tablename
-    __table_args__  = {'schema': ViewMmbTagKeys.schema_pst}
-    
-    id              = Column(ViewMmbTagKeys.ID, BigInteger, primary_key= True)
-    member_id       = Column(ViewMmbTagKeys.member_id, UUID(as_uuid=True), nullable= False)
-    
-    tag_std         = Column(ViewMmbTagKeys.tag_std, String(TableCharLimit._255), nullable=False)
-    count           = Column(ViewMmbTagKeys.count, Integer, nullable=False)
 
 
 class ViewDailyPostScore(Base):

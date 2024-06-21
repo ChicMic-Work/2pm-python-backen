@@ -548,6 +548,7 @@ class ViewMmbTagKeys(BaseKey):
     
     tablename   = "v_mbr_tag_cnt"
     
+    ID          = "tag_id"
     tag_std     = "df_tag_std"
     member_id   = "mbr_id"
     count       = "tag_cnt"

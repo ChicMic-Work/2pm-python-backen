@@ -172,7 +172,11 @@ async def list_for_inviting_members(
         
         await check_post_curr_details(db, post.id)
         
-        res_data = await invite_member_to_post_list(db, post, user.id, limit, offset, type, search.strip())
+        if type != PostInviteListType.RECOMMENDATION:
+            res_data = await invite_member_to_post_list(db, post, user.id, limit, offset, type, search.strip())
+        else:
+            pass
+            # res_data = await recommend_member_to_post_list(db, post, user.id, limit, offset)
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,

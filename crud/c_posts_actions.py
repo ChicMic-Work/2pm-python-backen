@@ -382,6 +382,29 @@ async def invite_member_to_post_list(
 
 
 
+async def recommend_member_to_post_list(
+    db: AsyncSession,
+    post_id: int,
+    user_id: int,
+    limit: int = 10,
+    offset: int = 0
+):
+
+    query = (
+        select(
+            MemberProfileCurr.alias,
+            MemberProfileCurr.image
+        )
+        .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
+        .where(
+            MmbFollowCurr.followed_id == user_id
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+
+
+
 async def invite_mem_post_response(
     db: AsyncSession,
     invites,
