@@ -39,9 +39,9 @@ protected_endpoints = [
     '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
     '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
-    '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/',
+    '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/', '/posts/draft/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
-    '/posts/take/poll/', '/posts/reveal/poll/',
+    '/posts/take/poll/', '/posts/reveal/poll/', '/posts/post/', '/posts/comment/',
     '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/', 
     '/posts/invite/user/', '/posts/invite/list/', '/posts/follow/', '/posts/fav/', '/posts/like/', 
 ]
@@ -135,6 +135,8 @@ class PostType:
     Answer = "A" 
     Poll = "P"
     
+    Daily = "D"
+    
     types_list = ['B', 'Q', 'A', 'P']
 
 PGROONGA_OPERATOR = 'OPERATOR(mbr.&@)'
@@ -188,6 +190,11 @@ LIKED = "Liked"
 CANT_REPORT_SELF = "Can't report yourself"
 COMMENT_NOT_FOUND = "Comment not found"
 REPORT_ALREADY_EXISTS = "Report already exists"
+DRAFT_NOT_FOUND = "Draft not found"
+CANT_DELETE_DRAFT = "Can't delete draft"
+CANT_DELETE_POST = "Can't delete post"
+CANT_DELETE_COMMENT = "Can't delete comment"
+COMMENT_NOT_FOUND = "Comment not found"
 
 class RandomSample:
     

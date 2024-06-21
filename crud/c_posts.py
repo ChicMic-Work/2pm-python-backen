@@ -39,7 +39,7 @@ from utilities.constants import (
 )
 
 from database.models import (
-    DailyAns, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
+    CommentNode, DailyAns, DailyCommentNode, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
     PostDraft, PostStatusCurr, PostStatusHist, QuesInvite, TagList
 )
 from uuid_extensions import uuid7
@@ -518,5 +518,105 @@ async def add_ans_to_invited_ques(
         .values(ans_post_id=ans.id)
     )
     
+    
+    return query
+
+
+async def update_post_hist_to_deleted(
+    db: AsyncSession,
+    _curr: PostStatusCurr
+):
+    
+    return PostStatusHist(
+        post_id = _curr.post_id,
+        is_deleted = True,
+        is_blocked = _curr.is_blocked,
+        is_anonymous = _curr.is_anonymous,
+        add_type = AddType.Update,
+    )
+    
+
+async def update_ans_posts_to_deleted(
+    db: AsyncSession,
+    ques_curr: PostStatusCurr
+):
+    
+    query = (
+        select(PostStatusCurr)
+        .select_from(Post)
+        .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
+        .where(
+            Post.assc_post_id == ques_curr.post_id
+        )
+    )
+    
+    answers = (await db.execute(query)).fetchall()
+    
+    _hist_list = []
+    _curr_list = []
+    
+    for ans in answers:
+        _curr = ans[0]
+        _curr.is_deleted = True
+        _curr.update_at = current_datetime()
+        _curr_list.append(_curr)
+        
+        _hist_list.append(PostStatusHist(
+            post_id = _curr.post_id,
+            is_deleted = True,
+            is_blocked = _curr.is_blocked,
+            is_anonymous = _curr.is_anonymous,
+            add_type = AddType.Update,
+        ))
+        
+    return _curr_list, _hist_list
+
+
+
+async def update_post_comments_to_deleted(
+    db: AsyncSession,
+    post_id: UUID,
+    post_type: PostType,
+    ans_ids: List[UUID] = None
+):
+
+    node_query = (
+        update(CommentNode)
+        .where(
+            CommentNode.post_id == post_id,
+        )
+        .values(is_deleted= True, update_at= current_datetime())
+    )
+    answer_query = None
+    if post_type == PostType.Question:
+        
+        answer_query = (
+            update(CommentNode)
+            .where(
+                CommentNode.post_id.in_(ans_ids)
+            )
+            .values(is_deleted= True, update_at= current_datetime())
+        )
+        
+        
+        query = query.where(
+            CommentNode.post_id.in_(ans_ids)
+        )
+    
+    return node_query, answer_query
+
+
+async def update_single_comment_to_deleted(
+    db: AsyncSession,
+    comment_id: UUID
+):
+    
+    query = (
+        update(CommentNode)
+        .where(
+            CommentNode.id == comment_id
+        )
+        .values(is_deleted= True, update_at= current_datetime())
+    )
     
     return query

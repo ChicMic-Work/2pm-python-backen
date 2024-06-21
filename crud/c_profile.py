@@ -196,6 +196,7 @@ async def get_user_profile_details_by_id(
 async def get_user_posts_details_by_user_id(
     db: AsyncSession,
     user_id: UUID,
+    searching_user_id: UUID,
     post_type: str,
     limit: int,
     offset: int
@@ -209,13 +210,15 @@ async def get_user_posts_details_by_user_id(
             Post.type == post_type,
             PostStatusCurr.is_deleted == False,
             PostStatusCurr.is_blocked == False,
-            PostStatusCurr.is_anonymous == False
         )
-        .order_by(desc(Post.post_at))
-        .limit(limit)
-        .offset(offset)
     )
+    
+    if searching_user_id != user_id:
+        query = query.where(PostStatusCurr.is_anonymous == False)
+    
 
+    query = query.order_by(desc(Post.post_at)).limit(limit).offset(offset)
+    
     results = await db.execute(query)
     posts = results.fetchall()
     

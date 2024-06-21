@@ -63,7 +63,8 @@ from utilities.s3_upload import (
 )
 
 from typing import (
-    List
+    List,
+    Optional
 )
 
 from fastapi import (
@@ -518,13 +519,13 @@ async def get_user_profile(
          
 
 @router.get(
-    "/get/users/posts/{user_id}",
+    "/get/users/posts/",
 )
 async def get_user_profile_posts(
     request: Request,
     response: Response,
-    user_id: str,
     post_type: str,
+    user_id: Optional[str] = None,
     limit: int = 10,
     offset: int = 0,
     Auth_token = Header(title=AuthTokenHeaderKey),
@@ -534,9 +535,16 @@ async def get_user_profile_posts(
         
         user: MemberProfileCurr = request.user
         
-        get_user = await db.get(MemberProfileCurr, user_id)
+        if user_id:
+            get_user = await db.get(MemberProfileCurr, user_id)
+            if not get_user:
+                raise Exception("user not found")
+            user_id = get_user.id
+        else:
+            get_user = user
+            user_id = user.id
         
-        user_posts = await get_user_posts_details_by_user_id(db, user_id, post_type, limit, offset)
+        user_posts = await get_user_posts_details_by_user_id(db, user_id, user.id, post_type, limit, offset)
         
         res_data = []
         
