@@ -1,5 +1,5 @@
-from sqlalchemy import exists, or_, select, asc, delete, desc, and_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import exists, func, or_, select, asc, delete, desc, and_
+from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
@@ -15,7 +15,7 @@ from utilities.constants import (
 
 from database.models import (
     DailyAns, MemberProfileCurr, MmbFollowCurr, MmbMsgReport, MmbReport, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostLikeCurr, PostLikeHist, PostStatusCurr, PostStatusHist, QuesInvite
+    PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostLikeCurr, PostLikeHist, PostStatusCurr, PostStatusHist, QuesInvite, ViewMmbTag
 )
 from uuid_extensions import uuid7
 
@@ -306,7 +306,10 @@ async def invite_member_to_post_list(
     if search:
         search_filter = MemberProfileCurr.alias.ilike(f"%{search}%")
         query = query.where(search_filter)
-        
+    
+    for filter in filters:
+        query = query.where(filter)
+    
     query = query.limit(limit).offset(offset)
     """
     if search:
@@ -384,24 +387,100 @@ async def invite_member_to_post_list(
 
 async def recommend_member_to_post_list(
     db: AsyncSession,
-    post_id: int,
+    post: Post,
     user_id: int,
     limit: int = 10,
     offset: int = 0
 ):
-
-    query = (
+    
+    if post.type == PostType.Question:
+            
+        invited_subquery = (
+            select(QuesInvite.invited_mbr_id)
+            .where(QuesInvite.ques_post_id == post.id,
+                   QuesInvite.inviting_mbr_id == user_id)
+            .subquery()
+        )
+    elif post.type == PostType.Poll:
+        
+        invited_subquery = (
+            select(PollInvite.invited_mbr_id)
+            .where(PollInvite.poll_post_id == post.id,
+                   PollInvite.inviting_mbr_id == user_id)
+            .subquery()
+        )
+    
+    PostAlias = aliased(Post)
+    ViewMmbTagAlias = aliased(ViewMmbTag)
+    
+    post_tags_subquery = (
+        select(
+            PostAlias.tag1_std,
+            PostAlias.tag2_std,
+            PostAlias.tag3_std,
+            PostAlias.member_id.label('post_creator')
+        )
+        .where(PostAlias.id == post.id)
+        .subquery()
+    )
+    
+    tag_usage_subquery = (
+        select(
+            ViewMmbTagAlias.member_id,
+            func.count(ViewMmbTagAlias.tag_std).label('matching_tags'),
+            func.sum(ViewMmbTagAlias.count).label('total_count')
+        )
+        .join(post_tags_subquery, ViewMmbTagAlias.tag_std.in_([
+            post_tags_subquery.c.tag1_std,
+            post_tags_subquery.c.tag2_std,
+            post_tags_subquery.c.tag3_std
+        ]))
+        .where(ViewMmbTagAlias.member_id != post_tags_subquery.c.post_creator)
+        .group_by(ViewMmbTagAlias.member_id)
+        .subquery()
+    )
+    
+    recommended_users_query = (
         select(
             MemberProfileCurr.alias,
-            MemberProfileCurr.image
+            tag_usage_subquery.c.member_id,
+            MemberProfileCurr.image,
+            MemberProfileCurr.bio,
+            exists(invited_subquery.c.invited_mbr_id)
+                .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
+                .label("invited_already")
         )
-        .join(MemberProfileCurr, MemberProfileCurr.id == MmbFollowCurr.following_id)
-        .where(
-            MmbFollowCurr.followed_id == user_id
-        )
+        .join(MemberProfileCurr, tag_usage_subquery.c.member_id == MemberProfileCurr.id)
+        .order_by(tag_usage_subquery.c.matching_tags.desc(), tag_usage_subquery.c.total_count.desc())
         .limit(limit)
         .offset(offset)
     )
+
+    res = await db.execute(recommended_users_query)
+    users = res.fetchall()
+    
+    users_data = []
+    
+    if users:
+        for user in users:
+            
+            follow_counts = await get_follow_counts_search(db, user[1], user_id, False)
+            
+            users_data.append({
+                "id": user[1],
+                "alias": user[0],
+                "image": user[2],
+                "bio": user[3],
+                "invited_already": user[-1],
+                "followers_count": follow_counts["followers_count"],
+                "following_count": follow_counts["following_count"],
+                "is_following": follow_counts["is_following"]
+            })
+    else:
+        pass
+        #fuzzy records
+    
+    return users_data
 
 
 

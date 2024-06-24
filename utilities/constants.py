@@ -35,6 +35,7 @@ access_token_expire = timedelta(days=30)
 
 AuthTokenHeaderKey = "Auth-Token"
 protected_endpoints = [
+    '/auth/check/token/',
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
     '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
     '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/',
@@ -43,7 +44,7 @@ protected_endpoints = [
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
     '/posts/take/poll/', '/posts/reveal/poll/', '/posts/post/', '/posts/comment/',
     '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/', 
-    '/posts/invite/user/', '/posts/invite/list/', '/posts/follow/', '/posts/fav/', '/posts/like/', 
+    '/posts/invite/user/', '/posts/invite/user/list/', '/posts/invite/list/', '/posts/follow/', '/posts/fav/', '/posts/like/', 
 ]
 
 def current_datetime():

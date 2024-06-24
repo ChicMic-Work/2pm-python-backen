@@ -13,11 +13,20 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crud.c_posts import (
-    create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
-    create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
+    create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, 
+    create_draft_poll_post_crud, create_poll_post_crud, create_ques_post_crud, create_draft_ques_post_crud, 
+    get_poll_post_items
 )
-from crud.c_posts_actions import check_existing_report, check_if_poll_items_exist, check_if_user_took_poll, check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_post, member_mark_fav_post, member_report_content
-from crud.c_posts_list import get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_ques_drafts
+from crud.c_posts_actions import (
+    check_existing_report, check_if_poll_items_exist, check_if_user_took_poll, 
+    check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, 
+    invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_post, 
+    member_mark_fav_post, member_report_content, recommend_member_to_post_list
+)
+from crud.c_posts_list import (
+    get_ans_drafts, get_blog_drafts, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, 
+    get_post_question, get_post_questions_list, get_ques_drafts
+)
 from crud.c_profile import get_member_followers_following
 from dependencies import get_db
 
@@ -28,7 +37,10 @@ from crud.c_auth import (
 from schemas.s_posts_actions import MemTakePollReq, ReportReasonReq
 from schemas.s_posts_list import PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, CANT_REPORT_SELF, COMMENT_NOT_FOUND, DUPLICATE_POLL_ITEM_IDS, FOLLOWED, INVALID_REPORT_TYPE, LIKED, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, UNFOLLOWED, UNLIKE, USER_NOT_FOUND, AuthTokenHeaderKey, PostInviteListType, PostType, ReportType, ResponseKeys, ResponseMsg
+    ALREADY_INVITED, CANT_FOLLOW_POST, CANT_INVITE_TO_POST, CANT_INVITE_YOURSELF, 
+    CANT_REPORT_SELF, COMMENT_NOT_FOUND, DUPLICATE_POLL_ITEM_IDS, FOLLOWED, INVALID_REPORT_TYPE, 
+    LIKED, POLL_ITEM_NOT_FOUND, POST_NOT_FOUND, UNFOLLOWED, UNLIKE, USER_NOT_FOUND, AuthTokenHeaderKey,
+    PostInviteListType, PostType, ReportType, ResponseKeys, ResponseMsg
 )
 
 from schemas.s_posts import (
@@ -147,7 +159,7 @@ async def member_reveal_poll(
 
 
 @router.get(
-    "/invite/user/"
+    "/invite/user/list/"
 )
 async def list_for_inviting_members(
     request: Request,
@@ -175,8 +187,7 @@ async def list_for_inviting_members(
         if type != PostInviteListType.RECOMMENDATION:
             res_data = await invite_member_to_post_list(db, post, user.id, limit, offset, type, search.strip())
         else:
-            pass
-            # res_data = await recommend_member_to_post_list(db, post, user.id, limit, offset)
+            res_data = await recommend_member_to_post_list(db, post, user.id, limit, offset)
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,

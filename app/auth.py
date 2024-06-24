@@ -58,6 +58,7 @@ from utilities.constants import (
     USER_LOGGED_OUT,
     RedisKeys,
     ResponseKeys,
+    ResponseMsg,
     access_token_expire,
     SocialType, AuthTokenHeaderKey,
     REDIS_DB
@@ -75,7 +76,21 @@ router = APIRouter(
     tags=['auth'],
 )
 
-
+@router.get(
+    "/check/token/",
+)
+async def check_token(
+    request: Request,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+):
+    user: MemberProfileCurr = request.user
+    
+    return {
+        ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+        ResponseKeys.DATA: {
+            "id": user.id,
+        }
+    }
 
 """
 Generate Auth Token Based on:

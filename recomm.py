@@ -1,12 +1,12 @@
-from sqlalchemy import UUID, BigInteger, Column, Computed, DateTime, Integer, SmallInteger, String, Text, func, select, text
+from sqlalchemy import UUID, BigInteger, Boolean, Column, Computed, DateTime, Identity, Integer, SmallInteger, String, Text, exists, func, select, text
 from sqlalchemy.orm import aliased
 
-from database.table_keys import PostKeys, ViewMmbTagKeys
+from database.table_keys import MemberProfileKeys, PostKeys, QuesInvKeys, ViewMmbTagKeys
 from utilities.constants import TableCharLimit
 
-post_id = 'b309beea-a518-4d2e-bcb0-3ac922233fba'  
 
-default_uuid7 = text("uuid_generate_v4()")
+
+default_uuid7 = text("uuid_generate_v7()")
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncSession,
@@ -17,7 +17,7 @@ from sqlalchemy import Computed, create_engine, Engine
 from sqlalchemy.orm import sessionmaker, backref
 
 from sqlalchemy.ext.declarative import declarative_base
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_test"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test"
 # engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
 # SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=False, class_= AsyncSession )
 engine = create_engine(SQLALCHEMY_DATABASE_URL,)
@@ -67,9 +67,55 @@ class ViewMmbTag(Base):
     
     create_at       = Column(ViewMmbTagKeys.create_at, DateTime(True),nullable=False)
 
+class MemberProfileCurr(Base):
+    
+    __tablename__   = MemberProfileKeys.table_name_curr
+    __table_args__ = {'schema': MemberProfileKeys.schema_mbr}
+    
+    id              = Column(MemberProfileKeys.id , UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
+    apple_id        = Column(MemberProfileKeys.apple_id, String(TableCharLimit._255), nullable= True)
+    apple_email     = Column(MemberProfileKeys.apple_email, String(TableCharLimit._330), nullable= True)
+    google_id       = Column(MemberProfileKeys.google_id, String(TableCharLimit._255), nullable= True)
+    google_email    = Column(MemberProfileKeys.google_email, String(TableCharLimit._330), nullable= True)
+    join_at         = Column(MemberProfileKeys.join_at, DateTime(timezone= True), default= func.now(), nullable= False)
+    
+    alias           = Column(MemberProfileKeys.alias, String(TableCharLimit._255))
+    alias_std       = Column(MemberProfileKeys.alias_std, String(TableCharLimit._255))
+    
+    bio             = Column(MemberProfileKeys.bio, String(TableCharLimit._255), nullable= True)
+    image           = Column(MemberProfileKeys.image, String(TableCharLimit._255), nullable= True)
+    gender          = Column(MemberProfileKeys.gender, String(TableCharLimit._255))
+    is_dating       = Column(MemberProfileKeys.is_dating, Boolean, default=MemberProfileKeys.is_dating_default)
+    
+    
+    update_at       = Column(MemberProfileKeys.update_at, DateTime(timezone= True))
+
+class QuesInvite(Base):
+    
+    __tablename__   = QuesInvKeys.tablename
+    __table_args__  = {'schema': QuesInvKeys.schema_pst}
+    
+    id              = Column(QuesInvKeys.ID, BigInteger, Identity(always=True), primary_key= True)
+    
+    ques_post_id    = Column(QuesInvKeys.ques_post_id, UUID(as_uuid=True))
+    ans_post_id     = Column(QuesInvKeys.ans_post_id, UUID(as_uuid=True), nullable= True)
+    
+    invite_at       = Column(QuesInvKeys.invite_at, DateTime(True), default= func.now())
+    
+    inviting_mbr_id = Column(QuesInvKeys.inviting_mbr_id, UUID(as_uuid=True), nullable=False)
+    invited_mbr_id  = Column(QuesInvKeys.invited_mbr_id, UUID(as_uuid=True), nullable=False)
+
 
 PostAlias = aliased(Post)
 ViewMmbTagAlias = aliased(ViewMmbTag)
+post_id = '06672e03-4cac-719b-8000-13d03c4bcdf0'  
+
+invited_subquery = (
+    select(QuesInvite.invited_mbr_id)
+    .where(QuesInvite.ques_post_id == post_id,
+           QuesInvite.inviting_mbr_id == '06672c49-868c-78a2-8000-a0e843d9b8e9')
+    .subquery()
+)
 
 # Subquery to get the tags and post creator
 post_tags_subquery = (
@@ -102,7 +148,16 @@ tag_usage_subquery = (
 
 # Final query to get recommended users
 recommended_users_query = (
-    select(tag_usage_subquery.c.member_id)
+    select(tag_usage_subquery.c.member_id,
+            MemberProfileCurr.alias,
+            MemberProfileCurr.image,
+            MemberProfileCurr.bio,
+            exists(invited_subquery.c.invited_mbr_id)
+                .where(invited_subquery.c.invited_mbr_id == tag_usage_subquery.c.member_id)
+                .label("invited_already")
+    )
+    # .join(tag_usage_subquery, tag_usage_subquery.c.member_id == MemberProfileCurr.id)
+    .join(MemberProfileCurr, tag_usage_subquery.c.member_id == MemberProfileCurr.id)
     .order_by(tag_usage_subquery.c.matching_tags.desc(), tag_usage_subquery.c.total_count.desc())
 )
 
@@ -112,7 +167,7 @@ recommended_users_query = (
 # Execute the query
 with SessionLocal.begin() as session:
 
-    recommended_users = session.execute(recommended_users_query).scalars().all()
+    recommended_users = session.execute(recommended_users_query).fetchall()
     print(recommended_users)
 
 
