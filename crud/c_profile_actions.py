@@ -17,7 +17,7 @@ from utilities.constants import (
 from datetime import datetime, timedelta
 
 from database.models import (
-    DailyAns, DailyQues, MemberProfileCurr, MmbFollowCurr, MmbFollowHist, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    DailyAns, DailyQues, MemberProfileCurr, MmbFollowCurr, MmbFollowHist, MmbSpamCurr, MmbSpamHist, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
     PostDraft, PostStatusCurr, PostStatusHist, ViewPostScore
 )
 from uuid_extensions import uuid7
@@ -54,6 +54,42 @@ async def follow_unfollow_user(
         result = MmbFollowCurr(
             followed_id = member_id,
             following_id = user_id
+        )
+    
+    return _del, _hist, result
+
+
+async def spam_non_spam_user(
+    db: AsyncSession,
+    spam_id: UUID,
+    user_id: UUID,
+):
+    _del = None
+    
+    _hist = MmbSpamHist(
+        spam_mem_id = spam_id,
+        member_id = user_id,
+        add_type = AddType.Add
+    )
+    
+    query = (
+        select(MmbSpamCurr)
+        .where(
+            MmbSpamCurr.spam_mem_id == spam_id,
+            MmbSpamCurr.member_id == user_id
+        )
+    )
+    
+    result = (await db.execute(query)).scalar()
+    
+    if result:
+        _del = result
+        _hist.add_type = AddType.Delete 
+        
+    else:
+        result = MmbSpamCurr(
+            spam_mem_id = spam_id,
+            member_id = user_id
         )
     
     return _del, _hist, result

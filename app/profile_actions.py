@@ -23,7 +23,7 @@ from crud.c_choices import (
     get_mem_languages
 )
 
-from crud.c_profile_actions import follow_unfollow_user
+from crud.c_profile_actions import follow_unfollow_user, spam_non_spam_user
 from schemas.s_choices import (
     LangIACreate, LangIAResponse,
     ChoicesCreate, MemberChoicesReq
@@ -116,3 +116,42 @@ async def follow_user(
                 ResponseKeys.MESSAGE: str(exc),
             }
             
+
+@router.post(
+    "/spam/{user_id}",
+)
+async def spam_user(
+    user_id: str,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    Auth_token = Header(title=AuthTokenHeaderKey),
+):
+    async with db.begin():
+        try:
+            user: MemberProfileCurr = request.user
+            
+            if str(user.id) == user_id:
+                raise Exception("You can't spam yourself")
+            
+            del_query, hist, curr = await spam_non_spam_user(db, user.id, user_id)
+            
+            if del_query:
+                await db.delete(del_query)
+                msg = "Removed from spam"
+            else:
+                db.add(curr)
+                msg = "Added to spam"
+                
+            db.add(hist)
+            
+            return {
+                ResponseKeys.MESSAGE: msg
+            }
+            
+            
+        except Exception as exc:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {
+                ResponseKeys.MESSAGE: str(exc),
+            }
