@@ -61,8 +61,8 @@ async def follow_unfollow_user(
 
 async def spam_non_spam_user(
     db: AsyncSession,
-    spam_id: UUID,
     user_id: UUID,
+    spam_id: UUID,
 ):
     _del = None
     
