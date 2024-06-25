@@ -56,7 +56,7 @@ from utilities.constants import (
     ChoicesType, access_token_expire
 )
 
-from utilities.common import normalize_nickname
+from utilities.common import normalize_nickname, normalize_nickname_2
 
 from utilities.s3_upload import (
     upload_file, remove_file,
@@ -109,11 +109,11 @@ async def create_profile(
 
 
         try:
-            normalized_alias = normalize_nickname(profile.alias)
-        except:
+            normalized_alias = normalize_nickname_2(profile.alias)
+        except Exception as exc:
             response.status_code= status.HTTP_400_BAD_REQUEST
             return {
-                "message": ALIAS_INVALID_CHARACTER,
+                "message": str(exc),
                 "is_valid": False
             }
             
@@ -272,11 +272,11 @@ async def get_used_aliases(
         }
     
     try:
-        normalized_alias = normalize_nickname(alias)
-    except:
+        normalized_alias = normalize_nickname_2(alias)
+    except Exception as exc:
         response.status_code= status.HTTP_400_BAD_REQUEST
         return {
-            "message": ALIAS_INVALID_CHARACTER,
+            "message": str(exc),
             "is_valid": False
         }
     

@@ -1,14 +1,16 @@
 import re
+import regex
 from uuid import UUID
 from sqlalchemy import or_, select, desc, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from unidecode import unidecode
+import unicodedata
 from typing import List
 
 from database.models import MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, Post, PostStatusCurr, ViewPostScore
-from utilities.constants import PGROONGA_OPERATOR, PaginationLimit, PostType
+from utilities.constants import ALIAS_ATLEAST, ALIAS_STARTS, PGROONGA_OPERATOR, PaginationLimit, PostType
 
 def unaccent(s):
     """
@@ -101,6 +103,26 @@ def normalize_nickname(nickname):
     
     return normalized_nickname
 
+def normalize_nickname_2(alias):
+    # Remove accents and convert to uppercase
+    alias = ''.join(
+        c for c in unicodedata.normalize('NFD', alias)
+        if unicodedata.category(c) != 'Mn'
+    ).upper()
+    
+    # Remove all spaces
+    alias = regex.sub(r'\s+', '', alias)
+    
+    # if not regex.match(r'^\p{L}', alias):
+    #     raise Exception(ALIAS_STARTS)
+    
+    if not regex.search(r'\p{L}', alias, regex.UNICODE):
+        raise Exception(ALIAS_ATLEAST)
+    
+    return alias
+
+# alias = "ب.دد.ج, лвع.د, د.ا,د.ك, ل.ل ل.د, د.م.,ر.ع.,ر.ق, ден"
+# normalized_alias = normalize_alias(alias)
 
 def normalize_tag(tag):
     """Normalize the tag similar to the PostgreSQL normalize_tag function."""

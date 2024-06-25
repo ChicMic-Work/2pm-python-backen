@@ -144,12 +144,12 @@ PGROONGA_OPERATOR = 'OPERATOR(mbr.&@)'
 
 ALIAS_VALID     = "Valid"
 ALIAS_INVALID   = "Invalid"
-ALIAS_EXISTS    = "Nickname is already in use"
+ALIAS_EXISTS    = "Alias is already in use"
 ALIAS_CURRENT   = "Current"
 ALIAS_INVALID_CHARACTER = "Your input contains an invalid character"
-ALIAS_ATLEAST = "Nickname must contain at least one letter"
-ALIAS_STARTS = "Nickname must start with a letter"
-ALIAS_ATMOST = "Nickname must not exceed 20 characters"
+ALIAS_ATLEAST = "Alias must contain at least one letter"
+ALIAS_STARTS = "Alias must start with a letter"
+ALIAS_ATMOST = "Alias must not exceed 20 characters"
 BIO_ATMOST = "Bio must not exceed 150 characters"
 
 IMAGE_FAIL = "Failed to save image"

@@ -89,6 +89,8 @@ async def check_token(
         ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
         ResponseKeys.DATA: {
             "id": user.id,
+            "alias": user.alias,
+            "image": user.image
         }
     }
 
