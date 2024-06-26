@@ -1,4 +1,4 @@
-from sqlalchemy import exists, func, or_, select, asc, delete, desc, and_
+from sqlalchemy import exists, func, or_, select, asc, delete, desc, and_, text
 from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +8,7 @@ from uuid_extensions import uuid7
 from typing import List, Tuple
 
 from crud.c_profile import get_follow_counts_search
+from database.table_keys import MemberProfileKeys, MmbMuteKeys, QuesInvKeys
 from schemas.s_posts_actions import MemInvSentList, MemInviteListBase, ReportReasonReq
 from utilities.constants import (
     INVALID_POLL_ITEM, INVALID_POST_TYPE, POLL_ALREADY_REVEALED, POLL_ALREADY_TAKEN, POST_BLOCKED, POST_DELETED, REPORT_ALREADY_EXISTS, AddType, ChoicesType, PostInviteListType, PostType, ReportType
@@ -427,6 +428,7 @@ async def recommend_member_to_post_list(
     tag_usage_subquery = (
         select(
             ViewMmbTagAlias.member_id,
+            func.array_agg(ViewMmbTagAlias.tag_std).label('matched_tags'),
             func.count(ViewMmbTagAlias.tag_std).label('matching_tags'),
             func.sum(ViewMmbTagAlias.count).label('total_count')
         )
@@ -435,7 +437,8 @@ async def recommend_member_to_post_list(
             post_tags_subquery.c.tag2_std,
             post_tags_subquery.c.tag3_std
         ]))
-        .where(ViewMmbTagAlias.member_id != post_tags_subquery.c.post_creator)
+        .where(ViewMmbTagAlias.member_id != post_tags_subquery.c.post_creator,
+               ViewMmbTagAlias.member_id != user_id)
         .group_by(ViewMmbTagAlias.member_id)
         .subquery()
     )
@@ -446,6 +449,7 @@ async def recommend_member_to_post_list(
             tag_usage_subquery.c.member_id,
             MemberProfileCurr.image,
             MemberProfileCurr.bio,
+            tag_usage_subquery.c.matched_tags,
             exists(invited_subquery.c.invited_mbr_id)
                 .where(invited_subquery.c.invited_mbr_id == MemberProfileCurr.id)
                 .label("invited_already")
@@ -461,24 +465,78 @@ async def recommend_member_to_post_list(
     
     users_data = []
     
-    if users:
-        for user in users:
-            
-            follow_counts = await get_follow_counts_search(db, user[1], user_id, False)
-            
-            users_data.append({
-                "id": user[1],
-                "alias": user[0],
-                "image": user[2],
-                "bio": user[3],
-                "invited_already": user[-1],
-                "followers_count": follow_counts["followers_count"],
-                "following_count": follow_counts["following_count"],
-                "is_following": follow_counts["is_following"]
-            })
-    else:
-        pass
+    
+    if not users:
+    
         #fuzzy records
+        print("ENTERED FUZZY SEARCH")
+        tag_conditions = [text(f"v.df_tag_std OPERATOR(mbr.&@~) '{post.tag1_std}'")]
+        
+        if post.tag2_std:
+            tag_conditions.append(text(f"v.df_tag_std OPERATOR(mbr.&@~) '{post.tag2_std}'"))
+        if post.tag3_std:
+            tag_conditions.append(text(f"v.df_tag_std OPERATOR(mbr.&@~) '{post.tag3_std}'"))
+            
+        combined_conditions = text(" OR ".join([condition.text for condition in tag_conditions]))
+        
+        await db.execute(text("SET LOCAL enable_seqscan = off"))
+        await db.execute(text("SET LOCAL enable_indexscan = on"))
+        await db.execute(text("SET LOCAL enable_bitmapscan = off"))
+        
+        tag_query = text(f"""
+            
+            SELECT
+                mp.{MemberProfileKeys.alias} AS alias,
+                v.mbr_id,
+                mp.{MemberProfileKeys.image} AS image,
+                mp.{MemberProfileKeys.bio} AS bio,
+                COUNT(*) AS num_occurrences,
+                SUM(mbr.pgroonga_score(v.tableoid, v.ctid)) AS score,
+                ARRAY_AGG(v.df_tag_std) AS matched_tags,
+                EXISTS (
+                    SELECT 1
+                    FROM pst.{QuesInvKeys.tablename} q
+                    WHERE q.{QuesInvKeys.inviting_mbr_id} = '{user_id}'
+                      AND q.{QuesInvKeys.invited_mbr_id} = v.mbr_id
+                      AND q.{QuesInvKeys.ques_post_id} = '{post.id}'
+                ) AS invited_already
+            FROM pst.v_mbr_tag_cnt v
+            JOIN mbr.{MemberProfileKeys.table_name_curr} mp ON v.mbr_id = mp.{MemberProfileKeys.id}
+            WHERE ({combined_conditions})
+                    AND v.mbr_id != '{user_id}'
+                    AND v.mbr_id != '{post.member_id}'
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM mbr.{MmbMuteKeys.table_name_curr} m
+                        WHERE m.{MmbMuteKeys.member_id} = '{user_id}'
+                        AND m.{MmbMuteKeys.muted_mem_id} = v.mbr_id
+                    )
+            GROUP BY v.mbr_id, mp.{MemberProfileKeys.alias}, mp.{MemberProfileKeys.bio}, mp.{MemberProfileKeys.image}
+            ORDER BY 
+                score DESC,
+                num_occurrences DESC;
+            
+        """)
+        
+        result = await db.execute(tag_query)
+        users =  result.fetchall()
+        
+    
+    for user in users:
+        
+        follow_counts = await get_follow_counts_search(db, user[1], user_id, False)
+        
+        users_data.append({
+            "id": user[1],
+            "alias": user[0],
+            "image": user[2],
+            "bio": user[3],
+            "invited_already": user[-1],
+            "followers_count": follow_counts["followers_count"],
+            "following_count": follow_counts["following_count"],
+            "matched_tags": user[-2]
+        })
+
     
     return users_data
 
