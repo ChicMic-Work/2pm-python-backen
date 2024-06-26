@@ -149,6 +149,8 @@ class PostBlogQuesResponse(BaseModel):
     language_id: int
 
     post_at: AwareDatetime
+    
+    member_actions: Optional[dict]
 
 
 class InvitedQuesResponse(BaseModel):
@@ -219,6 +221,7 @@ class PostAnsResponse(BaseModel):
     is_for_daily: bool
 
     post_at: AwareDatetime | None
+    is_liked: Optional[bool]
 
 
 #POLL
@@ -370,6 +373,8 @@ class PostPollResponse(BaseModel):
     poll: List[PollQuestionRequest]
 
     post_at: AwareDatetime
+    
+    member_action: Optional[dict]
 
 class PostPollDraftResponse(BaseModel):
     

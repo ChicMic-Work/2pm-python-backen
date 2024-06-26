@@ -38,7 +38,7 @@ protected_endpoints = [
     '/auth/check/token/',
     '/profile/create/', '/profile/alias', '/profile/image/', '/profile/user',
     '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
-    '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/',
+    '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/', '/profile/mute/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
     '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/', '/posts/draft/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
@@ -144,12 +144,12 @@ PGROONGA_OPERATOR = 'OPERATOR(mbr.&@)'
 
 ALIAS_VALID     = "Valid"
 ALIAS_INVALID   = "Invalid"
-ALIAS_EXISTS    = "Nickname is already in use"
+ALIAS_EXISTS    = "Alias is already in use"
 ALIAS_CURRENT   = "Current"
 ALIAS_INVALID_CHARACTER = "Your input contains an invalid character"
-ALIAS_ATLEAST = "Nickname must contain at least one letter"
-ALIAS_STARTS = "Nickname must start with a letter"
-ALIAS_ATMOST = "Nickname must not exceed 20 characters"
+ALIAS_ATLEAST = "Alias must contain at least one letter"
+ALIAS_STARTS = "Alias must start with a letter"
+ALIAS_ATMOST = "Alias must not exceed 20 characters"
 BIO_ATMOST = "Bio must not exceed 150 characters"
 
 IMAGE_FAIL = "Failed to save image"

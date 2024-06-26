@@ -73,6 +73,7 @@ class MemberProfileDetailResponse(BaseModel):
     following_count: int
     is_following: bool
     my_profile: bool = False
+    marked_as_muted: bool = False
 
 
 class SearchedUserResponse(BaseModel):

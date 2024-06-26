@@ -1,15 +1,15 @@
-from sqlalchemy import distinct, join, select, func, desc, and_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import distinct, exists, join, select, func, desc, and_
+from sqlalchemy.orm import Session, joinedload, aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import UUID
 from uuid_extensions import uuid7
-from crud.c_posts_list import convert_all_post_list_for_response, convert_blog_ques_post_for_response, convert_poll_post_for_response, get_post_tags_list, invited_question_poll_response
+from crud.c_posts_list import convert_all_post_list_for_response, invited_question_poll_response
 from database.models import (
     Languages, MmbFollowCurr,
     InterestAreas,
     MemberProfileCurr, MemberProfileHist,
-    AliasHist, MmbFollowHist, PollInvite,
+    AliasHist, MmbFollowHist, MmbMuteCurr, MmbSpamCurr, PollInvite,
     PollQues,
     Post, PostFavCurr, PostFolCurr, PostLikeCurr,
     PostStatusCurr, QuesInvite,
@@ -73,6 +73,7 @@ async def create_mem_profile_history(
     )
 
     return new_profile
+
 
 
 #SEARCH
@@ -326,7 +327,7 @@ async def get_member_followed_posts_list(
     results = await db.execute(query)
     posts = results.fetchall()
         
-    return await convert_all_post_list_for_response(db, posts)
+    return await convert_all_post_list_for_response(db, posts, user_id, like = True, favorite = True)
 
 
 async def get_member_fav_posts_list(
@@ -359,7 +360,7 @@ async def get_member_fav_posts_list(
     results = await db.execute(query)
     posts = results.fetchall()
         
-    return await convert_all_post_list_for_response(db, posts)
+    return await convert_all_post_list_for_response(db, posts, user_id, like = True, follow = True)
 
 
 async def get_member_like_posts_list(
@@ -392,7 +393,7 @@ async def get_member_like_posts_list(
     results = await db.execute(query)
     posts = results.fetchall()
         
-    return await convert_all_post_list_for_response(db, posts)
+    return await convert_all_post_list_for_response(db, posts, user_id, favorite = True, follow = True)
 
 
 async def get_member_profile_invites_list(
@@ -406,6 +407,8 @@ async def get_member_profile_invites_list(
     
     if invite_type == PostInviteListType.RECEIVED:
         
+        mute_alias = aliased(MmbMuteCurr)
+        
         if type == PostType.Question:
             
             subquery = (
@@ -416,6 +419,10 @@ async def get_member_profile_invites_list(
                     PostStatusCurr.is_anonymous.label("is_anonymous")
                 )
                 .join(PostStatusCurr, QuesInvite.ques_post_id == PostStatusCurr.post_id)
+                .outerjoin(mute_alias, and_(
+                    mute_alias.member_id == user_id,
+                    mute_alias.muted_mem_id == QuesInvite.inviting_mbr_id
+                ))
                 .where(
                     PostStatusCurr.is_blocked == False,
                     PostStatusCurr.is_deleted == False,
@@ -445,6 +452,10 @@ async def get_member_profile_invites_list(
                     PostStatusCurr.is_anonymous.label("is_anonymous")
                 )
                 .join(PostStatusCurr, PollInvite.poll_post_id == PostStatusCurr.post_id)
+                .outerjoin(mute_alias, and_(
+                    mute_alias.member_id == user_id,
+                    mute_alias.muted_mem_id == PollInvite.inviting_mbr_id
+                ))
                 .where(
                     PostStatusCurr.is_blocked == False,
                     PostStatusCurr.is_deleted == False,
@@ -542,3 +553,44 @@ async def get_member_profile_invites_list(
     
     
     return invite_list
+
+
+
+async def get_muted_list(
+    db: AsyncSession,
+    user_id: int,
+    limit: int,
+    offset: int,
+):
+    query = (
+        select(MemberProfileCurr.alias, MmbMuteCurr.member_id, MemberProfileCurr.image, MemberProfileCurr.bio)
+        .join(MemberProfileCurr, MmbMuteCurr.member_id == MemberProfileCurr.id)
+        .where(
+            MmbMuteCurr.member_id == user_id
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+    
+    results = await db.execute(query)
+    muted_list = results.fetchall()
+    
+    user_data = []
+    
+    for user in muted_list:
+        
+        follow_counts = await get_follow_counts_search(db, user[1], user_id, check_following = False)
+        
+        user_data.append({
+            "alias": user[0],
+            "id": user[1],
+            "image": user[2],
+            "bio": user[3],
+            "followers_count": follow_counts["followers_count"],
+            "following_count": follow_counts["following_count"],
+            "is_following": follow_counts["is_following"],
+            "my_profile": follow_counts["my_profile"]
+        })
+        
+    return user_data
+    

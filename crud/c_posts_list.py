@@ -9,7 +9,7 @@ from datetime import date
 from uuid import UUID
 from uuid_extensions import uuid7
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from schemas.s_posts import InvitedQuesResponse, PostAnsResponse, PostBlogQuesResponse, PostPollResponse
 from utilities.common import get_most_popular_base_func, get_random_posts_with_details, get_random_questions_polls_with_details, get_random_sample_posts, search_post_base_func
@@ -20,8 +20,8 @@ from utilities.constants import (
 from datetime import datetime, timedelta
 
 from database.models import (
-    DailyAns, DailyQues, MemberProfileCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
-    PostDraft, PostStatusCurr, PostStatusHist, QuesInvite, ViewPostScore
+    DailyAns, DailyAnsLike, DailyQues, MemberProfileCurr, MmbMuteCurr, MmbSpamCurr, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    PostDraft, PostFavCurr, PostFolCurr, PostLikeCurr, PostStatusCurr, PostStatusHist, QuesInvite, ViewPostScore
 )
 from uuid_extensions import uuid7
 
@@ -63,8 +63,113 @@ def get_member_dict_for_post_detail(
     
     return member
 
+async def check_id_user_marked_as_muted(
+    db: AsyncSession,
+    user_id: UUID,
+    muted_mem_id: UUID
+):
+    
+    query = (
+        select(exists().where(
+            MmbMuteCurr.muted_mem_id == muted_mem_id,
+            MmbMuteCurr.member_id == user_id
+        ))
+    )
+    
+    result = await db.execute(query)
+    exists_ = result.scalar()
+
+    return True if exists_ else False
 
 
+
+async def check_if_user_answered_question(
+    db: AsyncSession,
+    member_id: UUID,
+    post_id: UUID
+):
+    query = (
+        select(exists().where(
+            Post.member_id == member_id,
+            Post.type == PostType.Answer,
+            Post.assc_post_id == post_id
+        ))
+    )
+    results = await db.execute(query)
+    exists_ = results.scalar()
+
+    return True if exists_ else False
+
+async def check_if_daily_ans_liked(
+    db: AsyncSession,
+    post_id: UUID,
+    user_id: UUID
+):
+    query = select(exists().where(DailyAnsLike.member_id == user_id, DailyAnsLike.daily_answer_id == post_id))
+
+    like = (await db.execute(query)).scalar()
+
+    return True if like else False
+    
+async def check_if_post_liked(
+    db: AsyncSession,
+    post_id: UUID,
+    user_id: UUID
+):
+    query = select(exists().where(PostLikeCurr.post_id == post_id, PostLikeCurr.member_id == user_id))
+
+    like = (await db.execute(query)).scalar()
+
+    return True if like else False
+
+async def check_if_post_followed(
+    db: AsyncSession,
+    post_id: UUID,
+    user_id: UUID
+):
+    query = select(exists().where(PostFolCurr.post_id == post_id, PostFolCurr.member_id == user_id))
+
+    follow = (await db.execute(query)).scalar()
+
+    return True if follow else False
+
+async def check_if_post_favorite(
+    db: AsyncSession,
+    post_id: UUID,
+    user_id: UUID
+):
+    query = select(exists().where(PostFavCurr.post_id == post_id, PostFavCurr.member_id == user_id))
+
+    favorite = (await db.execute(query)).scalar()
+
+    return True if favorite else False
+
+async def get_member_actions_on_post(
+    db: AsyncSession,
+    post: Post,
+    user_id: UUID,
+    is_anonymous: bool,
+    **kwargs
+):
+    mem_act = {}
+    
+    if "like" in kwargs:
+        mem_act["liked"] = await check_if_post_liked(db, post.id, user_id)
+    
+    if "favorite" in kwargs:
+        mem_act["favorite"] = await check_if_post_favorite(db, post.id, user_id),
+    
+    if "follow" in kwargs and (post.type == PostType.Poll or post.type == PostType.Question):
+        mem_act["followed"] = await check_if_post_followed(db, post.id, user_id)
+        
+    if "answer" in kwargs and post.type == PostType.Question:
+        mem_act["answered"] = await check_if_user_answered_question(db, user_id, post.id)
+        
+    if "mute" in kwargs and not is_anonymous:
+        mem_act["mute"] = await check_id_user_marked_as_muted(db, user_id, post.member_id)
+        
+    return mem_act
+    
 
 ## DRAFTS ##
 
@@ -133,22 +238,7 @@ async def get_poll_drafts(
 
 ## ANSWER A QUESTION ##
 
-async def check_if_user_answered_question(
-    db: AsyncSession,
-    member_id: UUID,
-    post_id: UUID
-):
-    query = (
-        select(exists().where(
-            Post.member_id == member_id,
-            Post.type == PostType.Answer,
-            Post.assc_post_id == post_id
-        ))
-    )
-    results = await db.execute(query)
-    exists_ = results.scalar()
 
-    return exists_
 
 async def get_post_questions_list(
     db: AsyncSession,
@@ -165,10 +255,16 @@ async def get_post_questions_list(
         )
     ).alias("answered_posts")
     
+    mute_alias = aliased(MmbMuteCurr)
+    
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+        .outerjoin(mute_alias, and_(
+            mute_alias.member_id == member_id,
+            mute_alias.muted_mem_id == Post.member_id
+        ))
         .where(
             Post.type == PostType.Question,
             Post.id.notin_(answered_post_ids_query),
@@ -431,6 +527,7 @@ async def get_invited_question_poll_list(
     offset: int,
     post_type: str
 ):
+    mute_alias = aliased(MmbMuteCurr)
     
     if post_type == PostType.Question:
         query = (
@@ -440,6 +537,10 @@ async def get_invited_question_poll_list(
                 PostStatusCurr.is_anonymous
             )
             .join(PostStatusCurr, QuesInvite.ques_post_id == PostStatusCurr.post_id)
+            .outerjoin(mute_alias, and_(
+                mute_alias.member_id == member_id,
+                mute_alias.muted_mem_id == QuesInvite.inviting_mbr_id
+            ))
             .where(
                 QuesInvite.invited_mbr_id == member_id,
                 PostStatusCurr.is_deleted == False,
@@ -456,6 +557,10 @@ async def get_invited_question_poll_list(
                 PostStatusCurr.is_anonymous
             )
             .join(PostStatusCurr, PollInvite.poll_post_id == PostStatusCurr.post_id)
+            .outerjoin(mute_alias, and_(
+                mute_alias.member_id == member_id,
+                mute_alias.muted_mem_id == PollInvite.inviting_mbr_id
+            ))
             .where(
                 PollInvite.invited_mbr_id == member_id,
                 PostStatusCurr.is_deleted == False,
@@ -488,7 +593,7 @@ async def get_post_question(
     post_id: UUID,
     limit: int ,
     offset: int
-) -> Tuple[Tuple[Post, PostStatusCurr, str, str, str], List[Tuple[Post, PostStatusCurr, str, str, str]]]:
+) -> Tuple[Post, PostStatusCurr, str, str, str]:
     
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
@@ -506,21 +611,7 @@ async def get_post_question(
     if post[1].is_blocked:
         raise Exception(POST_BLOCKED)
     
-    query = (
-        select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
-        .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
-        .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
-        .where(
-            Post.assc_post_id == post_id
-        )
-        .order_by(desc(Post.post_at))
-        .limit(limit)
-        .offset(offset)
-    )
-    results = await db.execute(query)
-    answers = results.fetchall()
-    
-    return post, answers
+    return post
 
 
 
@@ -545,11 +636,16 @@ async def get_post_polls_list(
         )
     ).alias("poll_revealed")
     
+    mute_alias = aliased(MmbMuteCurr)
     
     query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+        .outerjoin(mute_alias, and_(
+            mute_alias.member_id == member_id,
+            mute_alias.muted_mem_id == Post.member_id
+        ))
         .where(
             Post.type == PostType.Poll,
             Post.id.notin_(taken_post_ids_query),
@@ -626,14 +722,22 @@ async def get_member_poll_taken(
 #HOT OFF PRESS
 async def get_hop_posts(
     db: AsyncSession,
+    user_id: UUID,
     limit: int,
     offset: int,
     sort_type: str
 ) -> List:
+    
+    mute_alias = aliased(MmbMuteCurr)
+    
     base_query = (
         select(Post, PostStatusCurr, MemberProfileCurr.image, MemberProfileCurr.alias, MemberProfileCurr.id)
         .join(PostStatusCurr, Post.id == PostStatusCurr.post_id)
         .join(MemberProfileCurr, Post.member_id == MemberProfileCurr.id)
+        .outerjoin(mute_alias, and_(
+            mute_alias.member_id == user_id,
+            mute_alias.muted_mem_id == Post.member_id
+        ))
         .where(
             Post.post_at >= (current_datetime() - timedelta(days=1)),
             PostStatusCurr.is_blocked == False,
@@ -803,13 +907,14 @@ async def get_random_posts(
     session: AsyncSession, 
     batch_size: int, 
     batch_count: int, 
-    final_limit: int
+    final_limit: int,
+    user_id: UUID
 ) -> List:
     
     combined_posts = []
     
     for _ in range(batch_count):
-        random_posts = await get_random_posts_with_details(session, batch_size)
+        random_posts = await get_random_posts_with_details(session, batch_size, user_id)
         combined_posts.extend(random_posts)
     
     random.shuffle(combined_posts)
@@ -818,7 +923,13 @@ async def get_random_posts(
 
 
 #POSTS LIST CONVERTER
-async def convert_blog_ques_post_for_response(post, member, tags):
+async def convert_blog_ques_post_for_response(db: AsyncSession, post, member, tags, member_id, **kwargs):
+    
+    mem_act = await get_member_actions_on_post(
+        db, post, member_id, member["is_anonymous"],
+        **kwargs
+    )
+    
     return PostBlogQuesResponse(
         post_id = str(post.id),
         member= member,
@@ -832,6 +943,8 @@ async def convert_blog_ques_post_for_response(post, member, tags):
 
         post_at= post.post_at,
         tags= tags,
+        
+        member_actions= mem_act
     )
 
 async def convert_normal_answer_post_for_response(db: AsyncSession, post, member):
@@ -860,10 +973,15 @@ async def convert_normal_answer_post_for_response(db: AsyncSession, post, member
         post_at= post.post_at
     )
     
-async def convert_poll_post_for_response(db:AsyncSession ,post, member, tags):
+async def convert_poll_post_for_response(db:AsyncSession ,post, member, tags, member_id, **kwargs):
     
     poll_ques = (await db.execute(select(PollQues).where(PollQues.post_id == post.id, PollQues.qstn_seq_num == 1, PollQues.ans_seq_letter == "A"))).scalar()
     post.body = poll_ques.ques_text
+    
+    mem_act = await get_member_actions_on_post(
+        db, post, member_id, member["is_anonymous"],
+        **kwargs
+    )
     
     return PostBlogQuesResponse(
         post_id = str(post.id),
@@ -876,10 +994,12 @@ async def convert_poll_post_for_response(db:AsyncSession ,post, member, tags):
         tags= tags,
         interest_area_id= post.interest_id,
         language_id= post.lang_id,
-        post_at= post.post_at
+        post_at= post.post_at,
+        
+        member_actions= mem_act
     )
 
-async def convert_all_post_list_for_response(db, posts, n=0):
+async def convert_all_post_list_for_response(db, posts, member_id, n=0, **kwargs):
     res_posts = []
     
     for post_tuple in posts:
@@ -895,7 +1015,7 @@ async def convert_all_post_list_for_response(db, posts, n=0):
 
             tags = get_post_tags_list(post)
 
-            res_posts.append(await convert_blog_ques_post_for_response(post, member, tags))
+            res_posts.append(await convert_blog_ques_post_for_response(db, post, member, tags, member_id, **kwargs))
             
         elif post.type == PostType.Answer:
 
@@ -905,7 +1025,7 @@ async def convert_all_post_list_for_response(db, posts, n=0):
 
             tags = get_post_tags_list(post)
 
-            res_posts.append(await convert_poll_post_for_response(db, post, member, tags))  
+            res_posts.append(await convert_poll_post_for_response(db, post, member, tags, member_id, **kwargs))  
             
 
     return res_posts

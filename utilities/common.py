@@ -1,14 +1,16 @@
 import re
+import regex
 from uuid import UUID
-from sqlalchemy import or_, select, desc, text
+from sqlalchemy import and_, or_, select, desc, text
 from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from unidecode import unidecode
+import unicodedata
 from typing import List
 
-from database.models import MemberProfileCurr, PollMemResult, PollMemReveal, PollMemTake, Post, PostStatusCurr, ViewPostScore
-from utilities.constants import PGROONGA_OPERATOR, PaginationLimit, PostType
+from database.models import MemberProfileCurr, MmbMuteCurr, MmbSpamCurr, PollMemResult, PollMemReveal, PollMemTake, Post, PostStatusCurr, ViewPostScore
+from utilities.constants import ALIAS_ATLEAST, ALIAS_STARTS, PGROONGA_OPERATOR, PaginationLimit, PostType
 
 def unaccent(s):
     """
@@ -101,6 +103,26 @@ def normalize_nickname(nickname):
     
     return normalized_nickname
 
+def normalize_nickname_2(alias):
+    # Remove accents and convert to uppercase
+    alias = ''.join(
+        c for c in unicodedata.normalize('NFD', alias)
+        if unicodedata.category(c) != 'Mn'
+    ).upper()
+    
+    # Remove all spaces
+    alias = re.sub(r'\s+', '', alias)
+    
+    # if not regex.match(r'^\p{L}', alias):
+    #     raise Exception(ALIAS_STARTS)
+    
+    if not regex.search(r'\p{L}', alias, regex.UNICODE):
+        raise Exception(ALIAS_ATLEAST)
+    
+    return alias
+
+# alias = "ب.دد.ج, лвع.د, د.ا,د.ك, ل.ل ل.د, د.م.,ر.ع.,ر.ق, ден"
+# normalized_alias = normalize_alias(alias)
 
 def normalize_tag(tag):
     """Normalize the tag similar to the PostgreSQL normalize_tag function."""
@@ -251,11 +273,16 @@ async def get_random_questions_polls_with_details(
     
     PostStatusCurrAlias = aliased(PostStatusCurr)
     MemberProfileCurrAlias = aliased(MemberProfileCurr)
+    mute_alias = aliased(MmbMuteCurr)
     
     stmt = (
         select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias, MemberProfileCurrAlias.id)
         .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
         .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
+        .outerjoin(mute_alias, and_(
+            mute_alias.member_id == member_id,
+            mute_alias.muted_mem_id == Post.member_id
+        ))
         .where(
             Post.id.in_(random_sample_posts),
             PostStatusCurrAlias.is_blocked == False,
@@ -272,12 +299,12 @@ async def get_random_questions_polls_with_details(
 
 async def get_random_sample_posts(session: AsyncSession, sample_size: int) -> List[Post]:
     
-    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size})")
+    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size}) WHERE post_posted.post_type not in ('A')")
     result = await session.execute(stmt)
     return result.scalars().all()
 
 
-async def get_random_posts_with_details(session: AsyncSession, sample_size: int) -> List:
+async def get_random_posts_with_details(session: AsyncSession, sample_size: int, user_id: UUID) -> List:
     
     random_sample_posts = await get_random_sample_posts(session, sample_size)
 
@@ -286,11 +313,16 @@ async def get_random_posts_with_details(session: AsyncSession, sample_size: int)
     
     PostStatusCurrAlias = aliased(PostStatusCurr)
     MemberProfileCurrAlias = aliased(MemberProfileCurr)
+    mute_alias = aliased(MmbMuteCurr)
     
     stmt = (
         select(Post, PostStatusCurrAlias, MemberProfileCurrAlias.image, MemberProfileCurrAlias.alias, MemberProfileCurrAlias.id)
         .join(PostStatusCurrAlias, Post.id == PostStatusCurrAlias.post_id)
         .join(MemberProfileCurrAlias, Post.member_id == MemberProfileCurrAlias.id)
+        .outerjoin(mute_alias, and_(
+            mute_alias.member_id == user_id,
+            mute_alias.muted_mem_id == Post.member_id
+        ))
         .where(
             Post.id.in_(random_sample_posts),
             PostStatusCurrAlias.is_blocked == False,

@@ -20,7 +20,7 @@ from crud.c_posts import (
 from crud.c_posts_actions import (
     check_existing_report, check_if_poll_items_exist, check_if_user_took_poll, 
     check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, 
-    invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_post, 
+    invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_daily_ans, member_like_post, 
     member_mark_fav_post, member_report_content, recommend_member_to_post_list
 )
 from crud.c_posts_list import (
@@ -58,7 +58,7 @@ from schemas.s_posts import (
 )
 
 from database.models import (
-    CommentNode, DailyCommentNode, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
+    CommentNode, DailyAns, DailyAnsLike, DailyCommentNode, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
     PostDraft
 )
 
@@ -388,37 +388,61 @@ async def like_post(
     Auth_token = Header(title=AuthTokenHeaderKey),
     db:AsyncSession = Depends(get_db)
 ):
-    try:
-        user: MemberProfileCurr = request.user
-        
-        post = await db.get(Post, post_id)
-        if not post:
-            raise Exception(POST_NOT_FOUND)
-        
-        await check_post_curr_details(db, post.id)
-        
-        del_query, hist, curr = await member_like_post(db, post, user.id)
-        
-        if del_query:
-            await db.delete(del_query)
-            msg = UNLIKE
+    async with db.begin():
+        try:
+            user: MemberProfileCurr = request.user
             
-        else:
-            db.add(curr)
-            msg = LIKED
+            post = await db.get(Post, post_id)
+            if not post:
+                
+                daily_ans = await db.get(DailyAns, post_id)
+                
+                if not daily_ans:
+                    raise Exception(POST_NOT_FOUND)
             
-        db.add(hist)
-        
-        return {
-            ResponseKeys.MESSAGE: msg
-        }
-        
-    except Exception as exc:
-        response.status_code = status.HTTP_400_BAD_REQUEST
-        return {
-            ResponseKeys.MESSAGE: str(exc),
-            ResponseKeys.DATA: None
-        }
+            if post:
+                await check_post_curr_details(db, post.id)
+                
+                del_query, hist, curr = await member_like_post(db, post, user.id)
+                
+                if del_query:
+                    await db.delete(del_query)
+                    msg = UNLIKE
+                    
+                else:
+                    db.add(curr)
+                    msg = LIKED
+                    
+                db.add(hist)
+            
+            else:
+                
+                liked = await member_like_daily_ans(db, user.id, daily_ans)
+                
+                if liked:
+                    msg = UNLIKE
+                    await db.delete(daily_ans)
+                else:
+                    db.add(
+                        DailyAnsLike(
+                            member_id = user.id,
+                            daily_answer_id = daily_ans.id
+                        )
+                    )
+                    msg = LIKED
+                
+            
+            return {
+                ResponseKeys.MESSAGE: msg
+            }
+            
+        except Exception as exc:
+            await db.rollback()
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {
+                ResponseKeys.MESSAGE: str(exc),
+                ResponseKeys.DATA: None
+            }
         
         
 @router.post(
@@ -484,3 +508,4 @@ async def report_post(
             ResponseKeys.MESSAGE: str(exc),
             ResponseKeys.DATA: None
         }
+        

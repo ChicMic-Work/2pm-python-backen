@@ -16,7 +16,7 @@ from crud.c_posts import (
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items
 )
 from crud.c_posts_actions import check_if_user_took_poll
-from crud.c_posts_list import check_if_user_answered_question, club_daily_post_answers, convert_all_post_list_for_response, convert_poll_post_for_response, get_cd_ques_list, get_hop_posts, get_invited_question_poll_list, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
+from crud.c_posts_list import check_if_daily_ans_liked, check_if_post_favorite, check_if_post_followed, check_if_post_liked, check_if_user_answered_question, club_daily_post_answers, convert_all_post_list_for_response, convert_poll_post_for_response, get_cd_ques_list, get_hop_posts, get_invited_question_poll_list, get_member_actions_on_post, get_mp_posts, get_ans_drafts, get_blog_drafts, get_member_dict_for_post_detail, get_member_poll_taken, get_poll_drafts, get_post_poll, get_post_polls_list, get_post_question, get_post_questions_list, get_post_tags_list, get_ques_drafts, get_random_post_questions_polls_list, get_random_posts, get_searched_posts, get_searched_question_poll_list, get_user_drafted_posts
 from dependencies import get_db
 
 from crud.c_auth import (
@@ -205,6 +205,15 @@ async def get_member_questions(
             
             member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3], user_id=ques[4])
             
+            mem_act = await get_member_actions_on_post(
+                db, ques[0], 
+                user.id,
+                ques[1].is_anonymous, 
+                like = True,
+                favorite = True,
+                follow = True
+            )
+            
             res_data.append(PostBlogQuesResponse(
                 post_id = str(ques[0].id),
                 member= member,
@@ -217,7 +226,9 @@ async def get_member_questions(
                 language_id= ques[0].lang_id,
                 
                 post_at= ques[0].post_at,
-                tags= tags
+                tags= tags,
+                
+                member_actions= mem_act
             ))
         
         return {
@@ -248,24 +259,21 @@ async def get_member_question(
 
         user: MemberProfileCurr = request.user
         
-        post, answers = await get_post_question(db, post_id, limit, offset)
-        
-        ans_list = []
-        
-        for ans in answers:
-            member = get_member_dict_for_post_detail(ans[1], image=ans[2], alias= ans[3], user_id= ans[4])
-            
-            ans_list.append(QuesAnsListResponse(
-                post_id = str(ans[0].id),
-                member= member,
-                type= ans[0].type,
-                title= ans[0].title,
-                body= ans[0].body,
-                post_at= ans[0].post_at 
-            ))
+        post = await get_post_question(db, post_id, limit, offset)
         
         tags = get_post_tags_list(post[0])
+        
         member = get_member_dict_for_post_detail(post[1], image=post[2], alias= post[3], user_id= post[4])
+
+        mem_act = await get_member_actions_on_post(
+            db, post[0], 
+            user.id, post[1].is_anonymous, 
+            like = True,
+            favorite = True,
+            follow = True,
+            answer = True,
+            mute = True
+        )
         
         post = PostBlogQuesResponse(
             post_id = str(post[0].id),
@@ -277,18 +285,14 @@ async def get_member_question(
             tags=tags,
             interest_area_id= post[0].interest_id,
             language_id= post[0].lang_id,
-            post_at= post[0].post_at
+            post_at= post[0].post_at,
+            
+            member_actions= mem_act
         )
-        
-        is_answered = await check_if_user_answered_question(db, user.id, post_id)
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
-            ResponseKeys.DATA: {
-                "ans_list": ans_list, 
-                "post": post,
-                "is_answered": True if is_answered == True else False
-            }
+            ResponseKeys.DATA: post
         }
         
     except Exception as exc:
@@ -339,7 +343,7 @@ async def get_member_polls(
             
             member = get_member_dict_for_post_detail(ques[1], image=ques[2], alias= ques[3], user_id= ques[4])
             
-            res_data.append(await convert_poll_post_for_response(db, ques[0], member, tags))
+            res_data.append(await convert_poll_post_for_response(db, ques[0], member, tags, user.id, like= True, favorite= True, follow= True))
         
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
@@ -379,6 +383,12 @@ async def get_member_poll(
         
         tags = get_post_tags_list(post[0])
 
+        mem_act = await get_member_actions_on_post(
+            db, post[0], user.id, post[1].is_anonymous,
+            like= True,
+            favorite= True,
+            follow= True,
+        )
         
         poll_data = PostPollResponse(
             post_id = str(post[0].id),
@@ -393,7 +403,9 @@ async def get_member_poll(
             language_id= post[0].lang_id,
             
             post_at= post[0].post_at,
-            poll= poll_items
+            poll= poll_items,
+            
+            member_action= mem_act
         )
         
         
@@ -449,9 +461,9 @@ async def hot_off_press(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_hop_posts(db, limit, offset, sort_type)
+        posts = await get_hop_posts(db, user.id, limit, offset, sort_type)
 
-        res_posts = await convert_all_post_list_for_response(db, posts)
+        res_posts = await convert_all_post_list_for_response(db, posts, user.id, like= True, favorite= True, follow= True)
 
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
@@ -491,6 +503,7 @@ async def club_daily_questions_list(
             member = None
             post_type = PostType.Question
             ans_id = None
+            is_liked = None
             if post[3]:
                 ans_id = str(post[2])
                 post_type = PostType.Answer
@@ -498,7 +511,8 @@ async def club_daily_questions_list(
                     is_anonymous= post[-1],
                 )
                 member = get_member_dict_for_post_detail(_curr, image=post[-3], alias= post[-4], user_id= post[-2])
-
+                is_liked = await check_if_daily_ans_liked(db, ans_id, user.id)
+                
             res_posts.append(PostAnsResponse(
                 post_id = ans_id,
                 member= member,
@@ -511,7 +525,8 @@ async def club_daily_questions_list(
                 post_ques_id=str(post[0]),
                 is_for_daily= True,
                 
-                post_at= post[4]
+                post_at= post[4],
+                is_liked= is_liked,
             ))
 
         return {
@@ -610,7 +625,7 @@ async def most_popular_posts(
         res_posts = []
         
         if posts:
-            res_posts = await convert_all_post_list_for_response(db, posts, n=1)
+            res_posts = await convert_all_post_list_for_response(db, posts, user.id, n=1, like= True, favorite= True, follow= True)
 
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
@@ -646,7 +661,7 @@ async def search_posts(
 
         res_posts = []
         if posts:
-            res_posts = await convert_all_post_list_for_response(db, posts)
+            res_posts = await convert_all_post_list_for_response(db, posts, user.id, like= True, favorite= True, follow= True)
 
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
@@ -675,11 +690,11 @@ async def pure_random_posts(
     try:
         user: MemberProfileCurr = request.user
         
-        posts = await get_random_posts(db, RandomSample._50, RandomSample._10, limit)
+        posts = await get_random_posts(db, RandomSample._50, RandomSample._10, limit, user.id)
 
         res_posts = []
         if posts:
-            res_posts = await convert_all_post_list_for_response(db, posts)
+            res_posts = await convert_all_post_list_for_response(db, posts, user.id, like= True, favorite= True, follow= True)
 
         return {
             ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,

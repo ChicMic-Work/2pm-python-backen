@@ -1,5 +1,5 @@
 from uuid import UUID
-from crud.c_posts_list import convert_all_post_list_for_response
+from crud.c_posts_list import convert_all_post_list_for_response, check_id_user_marked_as_muted
 from crud.c_profile import (
     create_alias_history,
     create_mem_profile_history,
@@ -8,7 +8,7 @@ from crud.c_profile import (
     get_member_followed_posts_list,
     get_member_followers_following,
     get_member_like_posts_list,
-    get_member_profile_invites_list,
+    get_member_profile_invites_list, get_muted_list,
     get_searched_users,
     get_used_alias,
     get_user_posts_details_by_user_id,
@@ -56,7 +56,7 @@ from utilities.constants import (
     ChoicesType, access_token_expire
 )
 
-from utilities.common import normalize_nickname
+from utilities.common import normalize_nickname, normalize_nickname_2
 
 from utilities.s3_upload import (
     upload_file, remove_file,
@@ -109,11 +109,11 @@ async def create_profile(
 
 
         try:
-            normalized_alias = normalize_nickname(profile.alias)
-        except:
+            normalized_alias = normalize_nickname_2(profile.alias)
+        except Exception as exc:
             response.status_code= status.HTTP_400_BAD_REQUEST
             return {
-                "message": ALIAS_INVALID_CHARACTER,
+                "message": str(exc),
                 "is_valid": False
             }
             
@@ -272,11 +272,11 @@ async def get_used_aliases(
         }
     
     try:
-        normalized_alias = normalize_nickname(alias)
-    except:
+        normalized_alias = normalize_nickname_2(alias)
+    except Exception as exc:
         response.status_code= status.HTTP_400_BAD_REQUEST
         return {
-            "message": ALIAS_INVALID_CHARACTER,
+            "message": str(exc),
             "is_valid": False
         }
     
@@ -502,7 +502,8 @@ async def get_user_profile(
             followers_count=follows["followers_count"],
             following_count=follows["following_count"],
             is_following=follows["is_following"],
-            my_profile= follows["my_profile"]
+            my_profile= follows["my_profile"],
+            marked_as_muted = await check_id_user_marked_as_muted(db, user_id, request.user.id)
         )
         
         return {
@@ -556,7 +557,7 @@ async def get_user_profile_posts(
             
             posts_list = [(post[0], post_curr, get_user.image, get_user.alias, get_user.id) for post in user_posts]
             
-            res_data = await convert_all_post_list_for_response(db, posts_list)
+            res_data = await convert_all_post_list_for_response(db, posts_list, user.id, like= True, favorite= True, follow= True)
         
         return {
             "message": "success",
@@ -714,6 +715,35 @@ async def member_invite_sent_received_posts_list(
             raise Exception("Invalid type")
         
         user_data = await get_member_profile_invites_list(db, user.id, type, limit, offset, invite_type)
+        
+        return {
+            "message": "success",
+            "data": user_data
+        }
+    
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "message": str(exc),
+            "data": None
+        }
+
+
+@router.get(
+    "/muted/",
+)
+async def get_user_muted_list(
+    request: Request,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+    limit: int = 10,
+    offset: int = 0
+):
+    try:
+        user: MemberProfileCurr = request.user
+        
+        user_data = await get_muted_list(db, user.id, limit, offset)
         
         return {
             "message": "success",
