@@ -294,7 +294,7 @@ async def get_random_questions_polls_with_details(
 
 async def get_random_sample_posts(session: AsyncSession, sample_size: int) -> List[Post]:
     
-    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size})")
+    stmt = text(f"SELECT * FROM pst.post_posted TABLESAMPLE SYSTEM({sample_size}) WHERE post_posted.post_type not in ('A')")
     result = await session.execute(stmt)
     return result.scalars().all()
 
