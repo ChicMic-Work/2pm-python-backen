@@ -696,7 +696,7 @@ async def get_cd_ques_list(
         ))
         .outerjoin(MemberProfileCurr, MemberProfileCurr.id == DailyAns.member_id)
         .where(DailyQues.is_live == True)
-        .order_by(desc(DailyAns.post_at))
+        # .order_by(desc(DailyAns.post_at))
         .limit(limit)
         .offset(offset)
     )
