@@ -6,10 +6,12 @@ from fastapi import (
     Request, UploadFile,
     File, Response
 )
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from starlette import status
-
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
+from redis.asyncio import Redis
 
 from crud.c_posts import (
     create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, create_draft_blog_post_crud, create_draft_poll_post_crud, create_poll_post_crud,
@@ -25,7 +27,9 @@ from crud.c_auth import (
 
 from schemas.s_posts_list import  PostQuestionResponse, QuesAnsListResponse
 from utilities.constants import (
-    DAILY_QUES_NOT_FOUND, DRAFT_NOT_FOUND, EMPTY_SEARCH_STRING, INVALID_POST_TYPE, INVALID_SEARCH_QUERY, AuthTokenHeaderKey, HOPSortType, PostListType, PostType, RandomSample, ResponseKeys, ResponseMsg
+    DAILY_QUES_NOT_FOUND, DRAFT_NOT_FOUND, EMPTY_SEARCH_STRING, INVALID_POST_TYPE, INVALID_SEARCH_QUERY, 
+    AuthTokenHeaderKey, HOPSortType, PostListType, PostType, RandomSample, ResponseKeys, ResponseMsg,
+    REDIS_DB
 )
 
 from schemas.s_posts import (
@@ -694,3 +698,51 @@ async def pure_random_posts(
             ResponseKeys.DATA: None
         }
         
+
+@router.get(
+    "/image/listing/"
+)
+async def daily_read_page_images(
+    request: Request,
+    response: Response,
+    db:AsyncSession = Depends(get_db),
+):
+    try:
+        
+        _list = []
+        for i in range(0,5):
+            _list.append("downloaded_image_" + str(i) + ".jpg")
+            
+        curr_dir = os.getcwd()
+        
+        image_urls = [f"{image}" for image in _list if os.path.isfile(os.path.join(curr_dir, image))]
+
+        red = await Redis(db = REDIS_DB)
+        images_urls = await red.lrange('images_urls', 0, -1)
+        
+        return {
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+            "images": images_urls
+            }
+
+        
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
+        
+@router.get(
+    "/image/{image_name}/"
+)
+async def get_image(
+    image_name: str
+):
+    curr_dir = os.getcwd()
+    print(curr_dir + "---" + image_name)
+    image_path = os.path.join(curr_dir, image_name)
+    print(image_path)
+    if not os.path.isfile(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(image_path)
