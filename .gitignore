@@ -165,3 +165,5 @@ migrations
 __pycache__
 
 .scannerwork/
+sqlalchemy_setup.py
+test_file.py

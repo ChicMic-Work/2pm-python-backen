@@ -20,3 +20,4 @@ redis
 pyjwt
 uuid7
 unidecode
+regex
