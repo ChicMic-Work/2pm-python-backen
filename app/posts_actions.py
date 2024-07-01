@@ -20,7 +20,7 @@ from crud.c_posts import (
 from crud.c_posts_actions import (
     check_existing_report, check_if_poll_items_exist, check_if_user_took_poll, 
     check_member_reveal_took_poll, check_post_curr_details, invite_mem_post_list, invite_member_to_post, 
-    invite_member_to_post_list, member_create_poll_entries, member_follow_ques_poll, member_like_daily_ans, member_like_post, 
+    invite_member_to_post_list, member_comment_like_unlike, member_create_poll_entries, member_follow_ques_poll, member_like_daily_ans, member_like_post, 
     member_mark_fav_post, member_report_content, recommend_member_to_post_list
 )
 from crud.c_posts_list import (
@@ -509,3 +509,51 @@ async def report_post(
             ResponseKeys.DATA: None
         }
         
+
+@router.post(
+    "/comment/like/{comment_id}"
+)
+async def like_comment(
+    request: Request,
+    response: Response,
+    comment_id: str,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db)
+):
+    try:
+        user: MemberProfileCurr = request.user
+
+        comment = await db.get(CommentNode, comment_id)
+        daily = False
+
+        if not comment:
+            comment = await db.get(DailyCommentNode, comment_id)
+            daily = True
+            if not comment:
+                raise Exception(COMMENT_NOT_FOUND)
+            
+        _liked, check = await member_comment_like_unlike(db, user.id, comment, daily)
+
+        if check:
+            msg = UNLIKE
+            db.delete(_liked)
+        else:
+            msg = LIKED
+            db.add(_liked)
+
+        await db.commit()
+
+        return {
+            ResponseKeys.MESSAGE: msg
+        }
+
+    except Exception as exc:
+        await db.rollback()
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc),
+            ResponseKeys.DATA: None
+        }
+    
+
+

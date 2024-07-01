@@ -15,7 +15,7 @@ from utilities.constants import (
 )
 
 from database.models import (
-    DailyAns, DailyAnsLike, MemberProfileCurr, MmbFollowCurr, MmbMsgReport, MmbReport, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
+    CommentLike, CommentNode, DailyAns, DailyAnsLike, DailyCmntLike, DailyCommentNode, MemberProfileCurr, MmbFollowCurr, MmbMsgReport, MmbReport, PollInvite, PollMemResult, PollMemReveal, PollMemTake, PollQues, Post,
     PostDraft, PostFavCurr, PostFavHist, PostFolCurr, PostFolHist, PostLikeCurr, PostLikeHist, PostStatusCurr, PostStatusHist, QuesInvite, ViewMmbTag
 )
 from uuid_extensions import uuid7
@@ -871,3 +871,50 @@ async def member_report_content(
     return MmbMsgReport(
         
     )
+
+
+async def member_comment_like_unlike(
+    db: AsyncSession,
+    member_id: UUID,
+    comment: CommentNode | DailyCommentNode,
+    daily: bool
+):
+    
+    if not daily:
+
+        query = (
+            select(CommentLike)
+            .where(
+                CommentLike.comment_id == comment.comment_id,
+                CommentLike.member_id == member_id
+            )
+            
+        )
+
+        check = (await db.execute(query)).scalar_one_or_none()
+
+        table = CommentLike
+
+    else:
+
+        query = (
+            select(DailyCmntLike)
+            .where(
+                    DailyCmntLike.comment_id == comment.comment_id,
+                    DailyCmntLike.member_id == member_id
+                )
+            
+        )
+
+        check = (await db.execute(query)).scalar_one_or_none()
+
+        table = DailyCmntLike
+
+    if not check:
+
+        return table(
+            comment_id = comment.id,
+            member_id = member_id
+        ), False
+    
+    return check, True

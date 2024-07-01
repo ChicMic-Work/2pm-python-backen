@@ -1,6 +1,7 @@
-from sqlalchemy import exists, func, select, asc, delete, update
+from sqlalchemy import exists, func, select, asc, delete, union_all, update
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from math import (floor)
 
@@ -27,6 +28,7 @@ from schemas.s_posts import (
     PostAnsRequest,
     PostBlogDraftRequest,
     PostBlogRequest,
+    PostCommentRequest,
     PostPollDraftRequest,
     # PostCreateRequest,
     PostPollRequest,
@@ -39,7 +41,7 @@ from utilities.constants import (
 )
 
 from database.models import (
-    CommentNode, DailyAns, DailyCommentNode, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
+    CommentNode, CommentTree, DailyAns, DailyCommentNode, DailyCommentTree, DailyQues, MemberProfileCurr, PollMemResult, PollQues, Post,
     PostDraft, PostStatusCurr, PostStatusHist, QuesInvite, TagList
 )
 from uuid_extensions import uuid7
@@ -620,3 +622,109 @@ async def update_single_comment_to_deleted(
     )
     
     return query
+
+
+
+async def create_a_post_comment(
+    db: AsyncSession,
+    post: Post | DailyAns, 
+    comment: PostCommentRequest,
+    user_id: UUID
+):
+    if post.type != PostType.Daily:
+
+        if not comment.parent_id:
+            
+            new_comment_stmt = (
+                pg_insert(CommentNode)
+                .values(
+                    post_id= post.id, 
+                    text=comment.body,
+                    member_id= user_id,
+                )
+                .returning(CommentNode.comment_id)
+            )
+
+        else:
+            
+            new_comment_stmt = (
+                pg_insert(CommentNode)
+                .values(
+                    post_id= post.id, 
+                    text=comment.body,
+                    member_id= user_id,
+                    parent_id=comment.parent_id
+                )
+                .returning(CommentNode.comment_id)
+            )
+
+        new_comment_id = (await db.execute(new_comment_stmt)).scalar_one()
+
+        tree_table = CommentTree
+            
+
+    else:
+
+        post: DailyAns
+
+        if not comment.parent_id:
+            
+            new_comment_stmt = (
+                pg_insert(DailyCommentNode)
+                .values(
+                    post_id= post.id, 
+                    text=comment.body,
+                    member_id= user_id,
+                )
+                .returning(DailyCommentNode.comment_id)
+            )
+        else:
+            
+            new_comment_stmt = (
+                pg_insert(DailyCommentNode)
+                .values(
+                    post_id= post.id, 
+                    text=comment.body,
+                    member_id= user_id,
+                    parent_id=comment.parent_id
+                )
+                .returning(DailyCommentNode.comment_id)
+            )
+
+        new_comment_id = (await db.execute(new_comment_stmt)).scalar_one()
+
+        tree_table = DailyCommentTree
+
+
+
+    if not comment.parent_id:
+
+        _cmnt_tree = tree_table(
+            parent_id=new_comment_id, 
+            child_id=new_comment_id, 
+            depth=0
+        )
+
+        db.add(_cmnt_tree)
+    else:
+        
+        parent_select = (
+            select(
+                tree_table.parent_id, 
+                new_comment_id,
+                tree_table.depth + 1
+            )
+            .where(tree_table.child_id == comment.parent_id)
+        )
+
+        child_select = select(new_comment_id, new_comment_id, 0)
+
+        closure_stmt = (
+            pg_insert(tree_table)
+            .from_select(['parent_id', 'child_id', 'depth'], union_all(parent_select, child_select))
+        )
+
+        await db.execute(closure_stmt)
+
+    
+    return new_comment_id

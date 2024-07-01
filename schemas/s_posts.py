@@ -395,6 +395,12 @@ class PostPollDraftResponse(BaseModel):
 
 
 
+#COMMENT
+class PostCommentRequest(BaseModel):
+
+    body: str
+    post_type: str
+    parent_id: Optional[UUID]
 
 
 """

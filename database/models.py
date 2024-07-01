@@ -42,8 +42,8 @@ SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@postgres:5432/2pm_
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@postgres:5432/2pm_test"
 
 #local local
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_ML1"
-# SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_ML1"
+# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/2pm_test"
+SQLALCHEMY_DATABASE_URL = "postgresql+asyncpg://postgres:1234@localhost:5432/2pm_test"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL,)
@@ -55,7 +55,7 @@ SessionLocal = async_sessionmaker(bind= engine, autocommit=False, autoflush=Fals
 Base = declarative_base()
 
 default_uuid7 = text("mbr.uuid_generate_v7()")
-# default_uuid7 = text("uuid_generate_v4()")
+# default_uuid7 = text("mbr.uuid_generate_v4()")
 
 class MemberRegistration(Base):
 
@@ -996,7 +996,7 @@ class CommentNode(Base):
     member_id       = Column(CommentNodeKeys.member_id, UUID(as_uuid=True), nullable= False)
     post_id         = Column(CommentNodeKeys.post_id, UUID(as_uuid=True), nullable= False, index= True)
     
-    root_id         = Column(CommentNodeKeys.root_id, UUID(as_uuid=True), nullable=False, index= True)
+    parent_id       = Column(CommentNodeKeys.parent_id, UUID(as_uuid=True), nullable=True, index= True)
     
     text            = Column(CommentNodeKeys.text, Text, nullable=False)
     is_deleted      = Column(CommentNodeKeys.is_deleted, Boolean, nullable=False, default= 0)
@@ -1018,8 +1018,7 @@ class CommentTree(Base):
     parent_id     = Column(CommentTreeKeys.parent_id, UUID(as_uuid=True), nullable= False)
     child_id      = Column(CommentTreeKeys.child_id, UUID(as_uuid=True), nullable= False)
     
-    root_id       = Column(CommentTreeKeys.root_id, UUID(as_uuid=True), nullable=False, index= True)
-    Depth         = Column(SmallInteger, nullable=False)
+    depth         = Column(CommentTreeKeys.depth, SmallInteger, nullable=False)
 
 class DailyCommentNode(Base):
     
@@ -1029,9 +1028,9 @@ class DailyCommentNode(Base):
     comment_id      = Column(DailyCommentNodeKeys.comment_id, UUID(as_uuid=True),nullable=False, primary_key= True, server_default = default_uuid7)
     
     member_id       = Column(DailyCommentNodeKeys.member_id, UUID(as_uuid=True), nullable= False)
-    daily_answer_id = Column(DailyCommentNodeKeys.daily_answer_id, UUID(as_uuid=True), nullable= False, index= True)
+    post_id         = Column(DailyCommentNodeKeys.daily_answer_id, UUID(as_uuid=True), nullable= False, index= True)
     
-    root_id         = Column(DailyCommentNodeKeys.root_id, UUID(as_uuid=True), nullable=False, index= True)
+    parent_id       = Column(DailyCommentNodeKeys.parent_id, UUID(as_uuid=True), nullable=False, index= True)
     
     text            = Column(DailyCommentNodeKeys.text, Text, nullable=False)
     is_deleted      = Column(DailyCommentNodeKeys.is_deleted, Boolean, nullable=False, default= 0)
@@ -1053,8 +1052,7 @@ class DailyCommentTree(Base):
     parent_id     = Column(DailyCommentTreeKeys.parent_id, UUID(as_uuid=True), nullable= False)
     child_id      = Column(DailyCommentTreeKeys.child_id, UUID(as_uuid=True), nullable= False)
     
-    root_id       = Column(DailyCommentTreeKeys.root_id, UUID(as_uuid=True), nullable=False, index= True)
-    Depth         = Column(SmallInteger, nullable=False)
+    depth         = Column(DailyCommentTreeKeys.depth, SmallInteger, nullable=False)
 
 class DailyAnsLike(Base):
     

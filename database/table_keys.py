@@ -640,6 +640,8 @@ class CommentNodeKeys(BaseKey):
     member_id   = "mbr_id"
     post_id     = "post_id"
     root_id     = "root_id"
+
+    parent_id = "parent_id"
     
     text        = "comment_text"
     is_deleted  = "is_deleted"
@@ -845,6 +847,8 @@ class DailyCommentNodeKeys(BaseKey):
     member_id   = "mbr_id"
     daily_answer_id    = "daily_answer_id"
     root_id     = "root_id"
+
+    parent_id   = "parent_id"
     
     text        = "comment_text"
     is_deleted  = "is_deleted"

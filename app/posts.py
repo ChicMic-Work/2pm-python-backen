@@ -10,7 +10,7 @@ from starlette import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from crud.c_posts import (
-    add_ans_to_invited_ques, create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, 
+    add_ans_to_invited_ques, create_a_post_comment, create_ans_post_crud, create_blog_post_crud, create_draft_ans_post_crud, 
     create_draft_blog_post_crud, create_draft_poll_post_crud, create_forum_tag, create_poll_post_crud,
     create_ques_post_crud, create_draft_ques_post_crud, get_poll_post_items, update_ans_posts_to_deleted, update_post_comments_to_deleted, update_post_hist_to_deleted
 )
@@ -35,6 +35,7 @@ from schemas.s_posts import (
     PostBlogQuesResponse,
     # PostCreateRequest,
     PostBlogRequest,
+    PostCommentRequest,
     PostPollDraftRequest,
     PostPollRequest,
     PostPollResponse,
@@ -670,3 +671,88 @@ async def delete_member_post(
                 ResponseKeys.MESSAGE: str(exc)
             }
             
+
+@router.post(
+    "/comment/{post_id}"
+)
+async def post_a_comment(
+    request: Request,
+    post_id: str,
+    response: Response,
+    comment: PostCommentRequest,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+):
+    async with db.begin():
+
+        try:
+            user: MemberProfileCurr = request.user
+            
+            if comment.post_type != PostType.Daily:
+                post = await db.get(Post, post_id)
+                if not post:
+                    raise Exception(POST_NOT_FOUND)
+                
+            else:
+                post = await db.get(DailyAns, post_id)
+                if not post:
+                    raise Exception(POST_NOT_FOUND)
+                
+            comment_id = await create_a_post_comment(db, post, comment, user.id)
+
+            return {
+                ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+                ResponseKeys.DATA: {
+                    "comment_id": comment_id,
+                    "member": {
+                        "alias": user.alias,
+                        "image": user.image,
+                        "id": user.id
+                    }
+                }
+            }
+
+        except Exception as exc:
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {
+                ResponseKeys.MESSAGE: str(exc)
+            }
+        
+
+@router.get(
+    "/comment/{post_id}"
+)
+async def get_post_comments(
+    request: Request,
+    post_id: str,
+    post_type: str,
+    response: Response,
+    Auth_token = Header(title=AuthTokenHeaderKey),
+    db:AsyncSession = Depends(get_db),
+):
+    
+    try:
+        user: MemberProfileCurr = request.user
+
+        if post_type != PostType.Daily:
+            post = await db.get(Post, post_id)
+            if not post:
+                raise Exception(POST_NOT_FOUND)
+            
+        else:
+            post = await db.get(DailyAns, post_id)
+            if not post:
+                raise Exception(POST_NOT_FOUND)
+            
+        
+        return {
+            ResponseKeys.MESSAGE: ResponseMsg.SUCCESS,
+        }
+            
+    except Exception as exc:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            ResponseKeys.MESSAGE: str(exc)
+        }
+
+        
