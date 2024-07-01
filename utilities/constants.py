@@ -40,7 +40,7 @@ protected_endpoints = [
     '/profile/choices/', '/auth/logout/', '/profile/get/users/', '/profile/get/users/posts/', '/profile/get/user/follows/',
     '/profile/follow/', 'profile/get/user/follows/', '/profile/followed/post/', '/profile/fav/post/', '/profile/like/post/', '/profile/invite/post/', '/profile/mute/',
     '/posts/create/blog/', '/posts/create/question/', '/posts/create/poll/', '/posts/create/answer/',
-    '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/', '/posts/draft/',
+    '/posts/draft/blog/', '/posts/draft/question/', '/posts/draft/poll/', '/posts/draft/answer/', '/posts/draft/', '/posts/report/',
     '/posts/get/drafts/', '/posts/get/questions/', '/posts/get/polls/',
     '/posts/take/poll/', '/posts/reveal/poll/', '/posts/post/', '/posts/comment/',
     '/posts/hop/', '/posts/cd/', '/posts/mp/', '/posts/search/', '/posts/pr/', 
